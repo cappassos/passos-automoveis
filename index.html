@@ -458,8 +458,15 @@ let currentUser = null;
 function toggleSenha() {
   const inp = document.getElementById('login-pass');
   const eye = document.getElementById('btn-eye');
-  if(inp.type === 'password') { inp.type = 'text'; eye.textContent = '🙈'; }
-  else { inp.type = 'password'; eye.textContent = '👁'; }
+  if(!inp || !eye) return;
+  if(inp.type === 'password') {
+    inp.type = 'text';
+    eye.innerHTML = '🙈';
+  } else {
+    inp.type = 'password';
+    eye.innerHTML = '👁';
+  }
+  inp.focus();
 }
 
 // Restore saved credentials on page load
@@ -488,7 +495,12 @@ function toggleSenha() {
 function doLogin() {
   const u = document.getElementById('login-user').value.trim();
   const p = document.getElementById('login-pass').value.trim();
-  USERS = loadUsers(); // sempre recarrega do localStorage
+  // Sempre inclui o admin com senha do código (ignora cache)
+  USERS = loadUsers();
+  // Garante admin atualizado
+  const adminIdx = USERS.findIndex(x => x.id === 'adm');
+  const adminDef = DEFAULT_USERS.find(x => x.id === 'adm');
+  if(adminIdx >= 0 && adminDef) USERS[adminIdx].pass = adminDef.pass;
   const found = USERS.find(x => x.user===u && x.pass===p);
   if(!found) { document.getElementById('login-error').textContent = 'Usuário ou senha inválidos.'; return; }
   if(!found.ativo) { document.getElementById('login-error').textContent = 'Usuário inativo. Fale com o administrador.'; return; }
