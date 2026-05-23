@@ -310,7 +310,7 @@ tbody td { padding:12px 16px; font-size:14px; }
       <label>Senha</label>
       <div style="position:relative">
         <input type="password" id="login-pass" placeholder="Digite sua senha" style="padding-right:44px">
-        <button type="button" onclick="toggleSenha()" id="btn-eye"
+        <button type="button" id="btn-eye" onclick="var i=document.getElementById('login-pass');if(i.type==='password'){i.type='text';this.innerHTML='🙈';}else{i.type='password';this.innerHTML='👁';}"
           style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:18px;padding:0;line-height:1">👁</button>
       </div>
       <div style="display:flex;align-items:center;gap:8px;margin-top:12px">
@@ -426,9 +426,24 @@ const LS = {
 };
 
 // ==================== AUTH LOCAL ====================
+// Limpa cache de usuários para garantir senha atualizada
+(function() {
+  try {
+    const saved = localStorage.getItem('passos_usuarios');
+    if(saved) {
+      const parsed = JSON.parse(saved);
+      const adm = parsed.find(u => u.id === 'adm');
+      // Se a senha salva não bate com a atual, limpa tudo
+      if(adm && adm.pass !== 'Passos2025@') {
+        localStorage.removeItem('passos_usuarios');
+        localStorage.removeItem('passos_remember');
+      }
+    }
+  } catch(e) { localStorage.removeItem('passos_usuarios'); }
+})();
 const ALL_TELAS = ['dashboard','veiculos','clientes','vendedores','gastos','categorias','fornecedores','estoque','vendas','solicitacoes','relatorio'];
 const DEFAULT_USERS = [
-  { id:'adm', user:'admin', pass:'P@ss0s_2oo6', name:'Administrador', role:'admin', avatar:'A', ativo:true, telas:[...ALL_TELAS,'usuarios'] },
+  { id:'adm', user:'admin', pass:'Passos2025@', name:'Administrador', role:'admin', avatar:'A', ativo:true, telas:[...ALL_TELAS,'usuarios'] },
   { id:'v1', user:'vendedor1', pass:'123456', name:'Vendedor 1', role:'vendedor', avatar:'V1', ativo:false, telas:['dashboard','vendas','estoque','clientes'] },
   { id:'v2', user:'vendedor2', pass:'123456', name:'Vendedor 2', role:'vendedor', avatar:'V2', ativo:false, telas:['dashboard','vendas','estoque','clientes'] },
   { id:'v3', user:'vendedor3', pass:'123456', name:'Vendedor 3', role:'vendedor', avatar:'V3', ativo:false, telas:['dashboard','vendas','estoque','clientes'] },
@@ -495,26 +510,31 @@ function toggleSenha() {
 function doLogin() {
   const u = document.getElementById('login-user').value.trim();
   const p = document.getElementById('login-pass').value.trim();
-  // Sempre inclui o admin com senha do código (ignora cache)
-  USERS = loadUsers();
-  // Garante admin atualizado
-  const adminIdx = USERS.findIndex(x => x.id === 'adm');
-  const adminDef = DEFAULT_USERS.find(x => x.id === 'adm');
-  if(adminIdx >= 0 && adminDef) USERS[adminIdx].pass = adminDef.pass;
-  const found = USERS.find(x => x.user===u && x.pass===p);
+  // Garante senha do admin sempre do código
+  const allUsers = [...DEFAULT_USERS];
+  const savedUsers = loadUsers();
+  savedUsers.forEach(su => {
+    const idx = allUsers.findIndex(x => x.id === su.id);
+    if(idx >= 0) {
+      // mantém senha do código para admin, resto do localStorage
+      if(su.id !== 'adm') allUsers[idx] = {...su, pass: su.pass};
+    } else {
+      allUsers.push(su);
+    }
+  });
+  const found = allUsers.find(x => x.user === u && x.pass === p);
   if(!found) { document.getElementById('login-error').textContent = 'Usuário ou senha inválidos.'; return; }
   if(!found.ativo) { document.getElementById('login-error').textContent = 'Usuário inativo. Fale com o administrador.'; return; }
   currentUser = found;
+  USERS = allUsers;
   const lembrar = document.getElementById('lembrar').checked;
   if(lembrar) localStorage.setItem('passos_remember', JSON.stringify({u,p}));
   else localStorage.removeItem('passos_remember');
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app').classList.remove('hidden');
   document.getElementById('user-name').textContent = found.name;
-  const roleLabel = {admin:'Administrador', vendedor:'Vendedor'}[found.role] || found.role;
-  document.getElementById('user-role').textContent = roleLabel;
+  document.getElementById('user-role').textContent = {admin:'Administrador',vendedor:'Vendedor'}[found.role]||found.role;
   document.getElementById('user-avatar').textContent = found.avatar;
-  buildSidebar();
   initApp();
 }
 document.getElementById('login-pass').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
@@ -570,70 +590,98 @@ let DATA = {
 };
 
 // ==================== LOAD / SAVE (Supabase + cache local) ====================
+// Versão local (sem Supabase) - usa apenas localStorage
+function loadDataLocal() {
+  DATA.veiculos     = LS.get('veiculos');
+  DATA.clientes     = LS.get('clientes');
+  DATA.vendedores   = LS.get('vendedores');
+  DATA.gastos       = LS.get('gastos');
+  DATA.vendas       = LS.get('vendas');
+  DATA.solicitacoes = LS.get('solicitacoes');
+  DATA.metas        = LS.getObj('metas');
+  DATA.categorias   = LS.get('categorias');
+  DATA.fornecedores = LS.get('fornecedores');
+  if(!DATA.categorias.length) seedCategorias();
+  if(!DATA.metas.mensal) DATA.metas = { mensal: Array(12).fill(10), valor: Array(12).fill(500000), vendedores: {} };
+  if(!DATA.metas.vendedores) DATA.metas.vendedores = {};
+}
+
+
 const CHAVES = ['veiculos','clientes','vendedores','gastos','vendas','solicitacoes','metas','categorias','fornecedores'];
 
 async function loadData() {
-  // Mostrar loading
-  document.getElementById('content').innerHTML =
-    '<div class="empty-state"><div class="empty-icon">☁️</div><div>Carregando dados da nuvem...</div></div>';
+  const isLocal = location.protocol === 'file:';
 
-  // Busca todas as chaves do Supabase em paralelo
-  const results = await Promise.all(CHAVES.map(async k => {
-    const val = await SB.get(k, k === 'metas' ? '{}' : '[]');
-    LS[k === 'metas' ? 'setObj' : 'set'](k, val); // atualiza cache local
-    return [k, val];
-  }));
+  if(!isLocal) {
+    // Online: carrega do Supabase
+    try {
+      document.getElementById('content').innerHTML =
+        '<div class="empty-state"><div class="empty-icon">☁️</div><div>Carregando dados da nuvem...</div></div>';
+      const results = await Promise.all(CHAVES.map(async k => {
+        const val = await SB.get(k, k === 'metas' ? '{}' : '[]');
+        LS[k === 'metas' ? 'setObj' : 'set'](k, val);
+        return [k, val];
+      }));
+      results.forEach(([k, val]) => { DATA[k] = val; });
+      // Sincronizar usuários
+      const usersRemote = await SB.get('usuarios', 'null');
+      if(!usersRemote || (Array.isArray(usersRemote) && usersRemote.length === 0)) {
+        const localUsers = loadUsers();
+        try { await SB.set('usuarios', localUsers); } catch(e) {}
+      } else if(Array.isArray(usersRemote) && usersRemote.length > 0) {
+        localStorage.setItem('passos_usuarios', JSON.stringify(usersRemote));
+        USERS = usersRemote;
+        // Garante senha do admin sempre do código
+        const ai = USERS.findIndex(x=>x.id==='adm');
+        if(ai>=0) USERS[ai].pass = DEFAULT_USERS.find(x=>x.id==='adm').pass;
+      }
+    } catch(e) {
+      // Fallback para local se Supabase falhar
+      loadDataLocal();
+    }
+  } else {
+    // Local: usa apenas localStorage
+    loadDataLocal();
+  }
 
-  results.forEach(([k, val]) => { DATA[k] = val; });
-
-  if(!DATA.categorias.length) { seedCategorias(); await saveData('categorias'); }
+  if(!DATA.categorias.length) { seedCategorias(); }
   if(!DATA.metas.mensal) DATA.metas = { mensal: Array(12).fill(10), valor: Array(12).fill(500000), vendedores: {} };
   if(!DATA.metas.vendedores) DATA.metas.vendedores = {};
-
-  // Salvar usuários no Supabase se ainda não existirem
-  const usersRemote = await SB.get('usuarios', 'null');
-  if(!usersRemote || (Array.isArray(usersRemote) && usersRemote.length === 0)) {
-    const localUsers = loadUsers();
-    await SB.set('usuarios', localUsers);
-  } else if(Array.isArray(usersRemote) && usersRemote.length > 0) {
-    localStorage.setItem('passos_usuarios', JSON.stringify(usersRemote));
-    USERS = usersRemote;
-  }
 }
 
-async function await saveData(key) {
+async function saveData(key) {
   const val = DATA[key];
-  // Salva localmente (imediato)
+  // Salva localmente sempre
   if(key === 'metas') LS.setObj('metas', val);
   else LS.set(key, val);
-  // Salva na nuvem
-  await SB.set(key, val);
+  // Tenta salvar na nuvem (falha silenciosa se local/offline)
+  try { await SB.set(key, val); } catch(e) {}
 }
 
-async function await saveUsers(arr) {
+async function saveUsers(arr) {
   localStorage.setItem('passos_usuarios', JSON.stringify(arr));
-  await SB.set('usuarios', arr);
+  try { await SB.set('usuarios', arr); } catch(e) {}
 }
 
 function uid() { return Date.now().toString(36) + Math.random().toString(36).substr(2,5); }
 
 // ==================== SEED DATA ====================
-function seedVeiculos() {
+async function seedVeiculos() {
   DATA.veiculos = [];
   await saveData('veiculos');
 }
 
-function seedVendedores() {
+async function seedVendedores() {
   DATA.vendedores = [];
   await saveData('vendedores');
 }
 
-function seedClientes() {
+async function seedClientes() {
   DATA.clientes = [];
   await saveData('clientes');
 }
 
-function seedCategorias() {
+async function seedCategorias() {
   DATA.categorias = [
     { id:uid(), nome:'Revisão/Manutenção', descricao:'Serviços de revisão e manutenção preventiva/corretiva', ativo:true },
     { id:uid(), nome:'Funilaria/Pintura', descricao:'Reparos de lataria, funilaria e pintura', ativo:true },
@@ -646,7 +694,7 @@ function seedCategorias() {
   await saveData('categorias');
 }
 
-function seedFornecedores() {
+async function seedFornecedores() {
   DATA.fornecedores = [];
   await saveData('fornecedores');
 }
@@ -2386,7 +2434,7 @@ function updateSolModelos() {
   document.getElementById('s-modelo').innerHTML = '<option value="">Qualquer</option>' + modelos.map(x=>`<option>${x}</option>`).join('');
 }
 
-function saveSolicitacao(id) {
+async function saveSolicitacao(id) {
   const cid = document.getElementById('s-cli').value;
   const marca = document.getElementById('s-marca').value;
   if(!cid || !marca) { alert('Selecione cliente e marca.'); return; }
@@ -2483,7 +2531,7 @@ async function atenderSolicitacao(id) {
   openModal();
 }
 
-function confirmarAtendimento(id) {
+async function confirmarAtendimento(id) {
   const sol = DATA.solicitacoes.find(x=>x.id===id);
   if(!sol) return;
   sol.status = 'atendido';
@@ -2568,7 +2616,7 @@ function showInteresseModal(veicNovo, matches) {
   openModal();
 }
 
-function confirmarAtendimentoDireto(id) {
+async function confirmarAtendimentoDireto(id) {
   const sol = DATA.solicitacoes.find(x=>x.id===id);
   if(!sol) return;
   sol.status = 'atendido';
@@ -2741,7 +2789,7 @@ function openCatModal(id) {
   openModal();
 }
 
-function saveCat(id) {
+async function saveCat(id) {
   const nome = document.getElementById('cat-nome').value.trim();
   if(!nome) { alert('Informe o nome.'); return; }
   const obj = {
@@ -2757,7 +2805,7 @@ function saveCat(id) {
   notify('🏷️ Categoria salva!', `${nome} atualizada com sucesso.`);
 }
 
-function deleteCat(id) {
+async function deleteCat(id) {
   if(!confirm('Excluir esta categoria? Os gastos existentes não serão afetados.')) return;
   DATA.categorias = DATA.categorias.filter(x=>x.id!==id);
   await saveData('categorias');
@@ -3113,7 +3161,12 @@ function notify(title, msg) {
 
 // ==================== INIT ====================
 async function initApp() {
-  await loadData();
+  // Carrega dados (local ou Supabase)
+  try {
+    await loadData();
+  } catch(e) {
+    loadDataLocal();
+  }
   buildSidebar();
   navigate('dashboard');
 
