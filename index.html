@@ -428,7 +428,7 @@ const LS = {
 // ==================== AUTH LOCAL ====================
 const ALL_TELAS = ['dashboard','veiculos','clientes','vendedores','gastos','categorias','fornecedores','estoque','vendas','solicitacoes','relatorio'];
 const DEFAULT_USERS = [
-  { id:'adm', user:'admin', pass:'passos2025', name:'Administrador', role:'admin', avatar:'A', ativo:true, telas:[...ALL_TELAS,'usuarios'] },
+  { id:'adm', user:'admin', pass:'P@ss0s_2oo6', name:'Administrador', role:'admin', avatar:'A', ativo:true, telas:[...ALL_TELAS,'usuarios'] },
   { id:'v1', user:'vendedor1', pass:'123456', name:'Vendedor 1', role:'vendedor', avatar:'V1', ativo:false, telas:['dashboard','vendas','estoque','clientes'] },
   { id:'v2', user:'vendedor2', pass:'123456', name:'Vendedor 2', role:'vendedor', avatar:'V2', ativo:false, telas:['dashboard','vendas','estoque','clientes'] },
   { id:'v3', user:'vendedor3', pass:'123456', name:'Vendedor 3', role:'vendedor', avatar:'V3', ativo:false, telas:['dashboard','vendas','estoque','clientes'] },
@@ -436,7 +436,18 @@ const DEFAULT_USERS = [
 ];
 function loadUsers() {
   const saved = localStorage.getItem('passos_usuarios');
-  if(saved) { try { return JSON.parse(saved); } catch(e){} }
+  if(saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      // Garante que o admin sempre usa a senha definida no código
+      const adminDefault = DEFAULT_USERS.find(u => u.id === 'adm');
+      const adminSaved = parsed.find(u => u.id === 'adm');
+      if(adminSaved && adminDefault) {
+        adminSaved.pass = adminDefault.pass; // sempre usa senha do código
+      }
+      return parsed;
+    } catch(e) {}
+  }
   localStorage.setItem('passos_usuarios', JSON.stringify(DEFAULT_USERS));
   return JSON.parse(JSON.stringify(DEFAULT_USERS));
 }
@@ -453,14 +464,24 @@ function toggleSenha() {
 
 // Restore saved credentials on page load
 (function restoreLogin() {
+  // Limpa credencial antiga se a senha não bate mais com nenhum usuário atual
   const saved = localStorage.getItem('passos_remember');
   if(saved) {
     try {
       const {u,p} = JSON.parse(saved);
-      document.getElementById('login-user').value = u||'';
-      document.getElementById('login-pass').value = p||'';
-      document.getElementById('lembrar').checked = true;
-    } catch(e) {}
+      const currentUsers = loadUsers();
+      const valid = currentUsers.find(x => x.user===u && x.pass===p);
+      if(valid) {
+        document.getElementById('login-user').value = u||'';
+        document.getElementById('login-pass').value = p||'';
+        document.getElementById('lembrar').checked = true;
+      } else {
+        // Credencial salva é inválida — limpa
+        localStorage.removeItem('passos_remember');
+      }
+    } catch(e) {
+      localStorage.removeItem('passos_remember');
+    }
   }
 })();
 
