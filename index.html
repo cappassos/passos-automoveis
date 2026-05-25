@@ -2956,7 +2956,6 @@ function renderUsuarios() {
     return;
   }
   document.getElementById('topbar-actions').innerHTML = '';
-  USERS = loadUsers();
 
   const telasOpts = Object.entries(TELA_MAP).map(([k,v]) =>
     `<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;padding:3px 0">
@@ -3042,7 +3041,6 @@ function togglePassVis(id) {
 }
 
 async function toggleUserAtivo(id) {
-  USERS = loadUsers();
   const u = USERS.find(x=>x.id===id);
   if(!u) return;
   u.ativo = !u.ativo;
@@ -3057,7 +3055,6 @@ async function toggleUserAtivo(id) {
 async function saveUserPass(id) { saveUserData(id); }
 
 async function saveUserData(id) {
-  USERS = loadUsers();
   const u = USERS.find(x=>x.id===id);
   if(!u) return;
   const isAdmin = u.role === 'admin';
@@ -3090,7 +3087,6 @@ async function saveUserData(id) {
 }
 
 function openTelasModal(id) {
-  USERS = loadUsers();
   const u = USERS.find(x=>x.id===id);
   if(!u) return;
   const checkboxes = Object.entries(TELA_MAP).filter(([k])=>k!=='usuarios').map(([k,v]) =>
@@ -3118,7 +3114,6 @@ function openTelasModal(id) {
 }
 
 async function saveTelas(id) {
-  USERS = loadUsers();
   const u = USERS.find(x=>x.id===id);
   if(!u) return;
   const checked = [...document.querySelectorAll('[name=tela-cb]:checked')].map(c=>c.value);
