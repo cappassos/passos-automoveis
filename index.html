@@ -441,7 +441,7 @@ const LS = {
     }
   } catch(e) { localStorage.removeItem('passos_usuarios'); }
 })();
-const ALL_TELAS = ['dashboard','veiculos','clientes','vendedores','gastos','categorias','fornecedores','estoque','vendas','solicitacoes','relatorio'];
+const ALL_TELAS = ['dashboard','veiculos','clientes','vendedores','gastos','categorias','fornecedores','marcas','modelos','estoque','vendas','solicitacoes','relatorio'];
 const DEFAULT_USERS = [
   { id:'adm', user:'admin', pass:'Passos2025@', name:'Administrador', role:'admin', avatar:'A', ativo:true, telas:[...ALL_TELAS,'usuarios'] },
   { id:'v1', user:'vendedor1', pass:'123456', name:'Vendedor 1', role:'vendedor', avatar:'V1', ativo:false, telas:['dashboard','vendas','estoque','clientes'] },
@@ -554,6 +554,8 @@ const TELA_MAP = {
   gastos:       { label:'Gastos c/ Veículos',  icon:'💸', grupo:'Cadastros' },
   categorias:   { label:'Categorias de Gastos',icon:'🏷️', grupo:'Cadastros' },
   fornecedores: { label:'Fornecedores',        icon:'🏭', grupo:'Cadastros' },
+  marcas:       { label:'Marcas',              icon:'🏷', grupo:'Cadastros' },
+  modelos:      { label:'Modelos',             icon:'🚘', grupo:'Cadastros' },
   estoque:      { label:'Lançar Estoque',      icon:'🏪', grupo:'Operações' },
   vendas:       { label:'Lançar Venda',        icon:'💰', grupo:'Operações' },
   solicitacoes: { label:'Solicitações',        icon:'📋', grupo:'Operações' },
@@ -586,7 +588,7 @@ function buildSidebar() {
 // ==================== DATA ====================
 let DATA = {
   veiculos: [], clientes: [], vendedores: [], gastos: [],
-  vendas: [], solicitacoes: [], metas: {}, categorias: [], fornecedores: []
+  vendas: [], solicitacoes: [], metas: {}, categorias: [], fornecedores: [], marcas: [], modelos: []
 };
 
 // ==================== LOAD / SAVE (Supabase + cache local) ====================
@@ -607,7 +609,7 @@ function loadDataLocal() {
 }
 
 
-const CHAVES = ['veiculos','clientes','vendedores','gastos','vendas','solicitacoes','metas','categorias','fornecedores'];
+const CHAVES = ['veiculos','clientes','vendedores','gastos','vendas','solicitacoes','metas','categorias','fornecedores','marcas','modelos'];
 
 async function loadData() {
   const isLocal = location.protocol === 'file:';
@@ -727,6 +729,7 @@ const pageTitles = {
   estoque:'Lançamento de Estoque', vendas:'Lançamento de Vendas',
   solicitacoes:'Solicitações de Veículos', relatorio:'Relatório de Vendas',
   categorias:'Categorias de Gastos', fornecedores:'Fornecedores',
+  marcas:'Cadastro de Marcas', modelos:'Cadastro de Modelos',
   usuarios:'Usuários / Acessos'
 };
 
@@ -749,6 +752,8 @@ function renderPage(page) {
     case 'categorias': renderCategorias(); break;
     case 'fornecedores': renderFornecedores(); break;
     case 'usuarios': renderUsuarios(); break;
+    case 'marcas': renderMarcas(); break;
+    case 'modelos': renderModelos(); break;
   }
 }
 
@@ -1300,26 +1305,39 @@ async function saveMetas() {
 }
 
 // ==================== VEÍCULOS ====================
-const MARCAS_MODELOS = {
-  'Toyota':['Hilux','Corolla','Camry','RAV4','Yaris','SW4','Land Cruiser','Etios'],
-  'Volkswagen':['Gol','Polo','T-Cross','Taos','Amarok','Virtus','Jetta','Tiguan'],
-  'Chevrolet':['Onix','Tracker','S10','Equinox','Cruze','Montana','Spin','Bolt'],
-  'Ford':['Ranger','Bronco Sport','Territory','EcoSport','Mustang','Ka','Maverick'],
-  'Hyundai':['HB20','Creta','Tucson','Santa Fe','i30','Ioniq 5','Kona'],
-  'Jeep':['Compass','Renegade','Commander','Wrangler','Grand Cherokee'],
-  'Honda':['Civic','HR-V','CR-V','Fit','City','Accord','WR-V'],
-  'Mitsubishi':['L200 Triton','Outlander','Eclipse Cross','ASX','Pajero'],
-  'Nissan':['Frontier','Kicks','Sentra','Versa','Leaf'],
-  'Renault':['Kwid','Sandero','Duster','Oroch','Captur'],
-  'Fiat':['Strada','Pulse','Fastback','Toro','Mobi','Argo','Cronos'],
-  'Kia':['Sportage','Sorento','Stinger','Carnival','Cerato'],
-  'BMW':['X1','X3','X5','320i','M3','i4'],
-  'Mercedes-Benz':['GLA','GLC','C 200','E 300','Sprinter'],
-  'Audi':['A3','A4','Q3','Q5','e-tron'],
-  'Peugeot':['208','2008','3008','Partner'],
-  'Citroën':['C3','C4 Cactus','Berlingo'],
-  'Ram':['1500','2500 Laramie'],
-};
+// MARCAS_MODELOS dinâmico — gerado a partir de DATA.marcas e DATA.modelos
+function getMarcasModelos() {
+  const map = {};
+  (DATA.marcas||[]).filter(m=>m.ativo).forEach(m => {
+    map[m.nome] = (DATA.modelos||[]).filter(x=>x.marca_id===m.id && x.ativo).map(x=>x.nome);
+  });
+  // Fallback com marcas padrão se não houver cadastro
+  if(Object.keys(map).length === 0) {
+    return {
+      'Toyota':['Hilux','Corolla','Camry','RAV4','Yaris','SW4','Land Cruiser','Etios'],
+      'Volkswagen':['Gol','Polo','T-Cross','Taos','Amarok','Virtus','Jetta','Tiguan'],
+      'Chevrolet':['Onix','Tracker','S10','Equinox','Cruze','Montana','Spin','Bolt'],
+      'Ford':['Ranger','Bronco Sport','Territory','EcoSport','Mustang','Ka','Maverick'],
+      'Hyundai':['HB20','Creta','Tucson','Santa Fe','i30','Ioniq 5','Kona'],
+      'Jeep':['Compass','Renegade','Commander','Wrangler','Grand Cherokee'],
+      'Honda':['Civic','HR-V','CR-V','Fit','City','Accord','WR-V'],
+      'Mitsubishi':['L200 Triton','Outlander','Eclipse Cross','ASX','Pajero'],
+      'Nissan':['Frontier','Kicks','Sentra','Versa','Leaf'],
+      'Renault':['Kwid','Sandero','Duster','Oroch','Captur'],
+      'Fiat':['Strada','Pulse','Fastback','Toro','Mobi','Argo','Cronos'],
+      'Kia':['Sportage','Sorento','Stinger','Carnival','Cerato'],
+      'BMW':['X1','X3','X5','320i','M3','i4'],
+      'Mercedes-Benz':['GLA','GLC','C 200','E 300','Sprinter'],
+      'Audi':['A3','A4','Q3','Q5','e-tron'],
+      'Peugeot':['208','2008','3008','Partner'],
+      'Citroën':['C3','C4 Cactus','Berlingo'],
+      'Ram':['1500','2500 Laramie'],
+    };
+  }
+  return map;
+}
+// Alias para compatibilidade com código existente
+const MARCAS_MODELOS = new Proxy({}, { get(t,k) { return getMarcasModelos()[k]; }, ownKeys() { return Object.keys(getMarcasModelos()); }, getOwnPropertyDescriptor(t,k) { return {enumerable:true,configurable:true}; } });
 
 function renderVeiculos() {
   const topbar = document.getElementById('topbar-actions');
@@ -1436,8 +1454,9 @@ function renderVeiculoCard(v) {
 
 function openVeiculoModal(id) {
   const v = id ? DATA.veiculos.find(x=>x.id===id) : null;
-  const marcasOpts = Object.keys(MARCAS_MODELOS).map(m=>`<option value="${m}" ${v?.marca===m?'selected':''}>${m}</option>`).join('');
-  const modelosOpts = v ? (MARCAS_MODELOS[v.marca]||[]).map(m=>`<option value="${m}" ${v.modelo===m?'selected':''}>${m}</option>`).join('') : '<option>-- Selecione a marca --</option>';
+  const mm = getMarcasModelos();
+  const marcasOpts = Object.keys(mm).map(m=>`<option value="${m}" ${v?.marca===m?'selected':''}>${m}</option>`).join('');
+  const modelosOpts = v ? (mm[v.marca]||[]).map(m=>`<option value="${m}" ${v.modelo===m?'selected':''}>${m}</option>`).join('') : '<option>-- Selecione a marca --</option>';
 
   document.getElementById('modal-title').textContent = v ? '✏ Editar Veículo' : '+ Novo Veículo';
   document.getElementById('modal-body').innerHTML = `
@@ -1557,7 +1576,7 @@ function openVeiculoModal(id) {
 
 function updateModelos() {
   const marca = document.getElementById('v-marca').value;
-  const modelos = MARCAS_MODELOS[marca] || [];
+  const modelos = getMarcasModelos()[marca] || [];
   document.getElementById('v-modelo').innerHTML = modelos.map(m=>`<option value="${m}">${m}</option>`).join('') || '<option>Selecione a marca</option>';
 }
 
@@ -2392,8 +2411,9 @@ function renderSolRow(s) {
 function openSolModal(id) {
   const s = id ? DATA.solicitacoes.find(x=>x.id===id) : null;
   document.getElementById('modal-title').textContent = s ? '✏ Editar Solicitação' : '📋 Nova Solicitação de Veículo';
-  const marcasOpts = Object.keys(MARCAS_MODELOS).map(m=>`<option ${s?.marca===m?'selected':''}>${m}</option>`).join('');
-  const modelosOpts = s ? (MARCAS_MODELOS[s.marca]||[]).map(m=>`<option ${s.modelo===m?'selected':''}>${m}</option>`).join('') : '';
+  const _mm3 = getMarcasModelos();
+  const marcasOpts = Object.keys(_mm3).map(m=>`<option ${s?.marca===m?'selected':''}>${m}</option>`).join('');
+  const modelosOpts = s ? (_mm3[s.marca]||[]).map(m=>`<option ${s.modelo===m?'selected':''}>${m}</option>`).join('') : '';
   document.getElementById('modal-body').innerHTML = `
     <div class="form-group"><label>Cliente</label>
       <select class="form-control" id="s-cli">
@@ -2430,7 +2450,7 @@ function openSolModal(id) {
 
 function updateSolModelos() {
   const m = document.getElementById('s-marca').value;
-  const modelos = MARCAS_MODELOS[m]||[];
+  const modelos = getMarcasModelos()[m]||[];
   document.getElementById('s-modelo').innerHTML = '<option value="">Qualquer</option>' + modelos.map(x=>`<option>${x}</option>`).join('');
 }
 
@@ -3123,6 +3143,170 @@ async function saveTelas(id) {
   closeModal();
   renderUsuarios();
   notify('✅ Telas salvas!', `Permissões de ${u.name} atualizadas.`);
+}
+
+// ==================== MARCAS ====================
+function renderMarcas() {
+  document.getElementById('topbar-actions').innerHTML =
+    `<button class="btn btn-primary" onclick="openMarcaModal()">+ Nova Marca</button>`;
+
+  const rows = DATA.marcas.length ? DATA.marcas.map(m => `
+    <tr>
+      <td class="fw-bold">${m.nome}</td>
+      <td class="text-muted">${(DATA.modelos||[]).filter(x=>x.marca_id===m.id).length} modelo(s)</td>
+      <td><span class="badge ${m.ativo?'badge-green':'badge-red'}">${m.ativo?'Ativa':'Inativa'}</span></td>
+      <td><div class="flex gap-8">
+        <button class="btn btn-sm btn-secondary" onclick="openMarcaModal('${m.id}')">✏</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteMarca('${m.id}')">🗑</button>
+      </div></td>
+    </tr>`).join('') :
+    `<tr><td colspan="4" class="empty-state">Nenhuma marca cadastrada</td></tr>`;
+
+  document.getElementById('content').innerHTML = `
+    <div class="card">
+      <div class="card-title mb-16">🏷 Marcas Cadastradas</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Marca</th><th>Modelos</th><th>Status</th><th></th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+function openMarcaModal(id) {
+  const m = id ? DATA.marcas.find(x=>x.id===id) : null;
+  document.getElementById('modal-title').textContent = m ? 'Editar Marca' : 'Nova Marca';
+  document.getElementById('modal-body').innerHTML = `
+    <div class="form-group">
+      <label>Nome da Marca</label>
+      <input class="form-control" id="marca-nome" value="${m?.nome||''}" placeholder="Ex: Toyota">
+    </div>
+    <div class="form-group">
+      <label>Status</label>
+      <select class="form-control" id="marca-ativo">
+        <option value="1" ${(!m||m.ativo)?'selected':''}>Ativa</option>
+        <option value="0" ${m&&!m.ativo?'selected':''}>Inativa</option>
+      </select>
+    </div>`;
+  document.getElementById('modal-footer').innerHTML = `
+    <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+    <button class="btn btn-primary" onclick="saveMarca('${id||''}')">Salvar</button>`;
+  openModal();
+}
+
+async function saveMarca(id) {
+  const nome = document.getElementById('marca-nome').value.trim();
+  if(!nome) { alert('Informe o nome da marca.'); return; }
+  if(!DATA.marcas) DATA.marcas = [];
+  if(id) {
+    const m = DATA.marcas.find(x=>x.id===id);
+    if(m) { m.nome = nome; m.ativo = document.getElementById('marca-ativo').value==='1'; }
+  } else {
+    if(DATA.marcas.find(x=>x.nome.toLowerCase()===nome.toLowerCase())) { alert('Marca já cadastrada.'); return; }
+    DATA.marcas.push({ id:uid(), nome, ativo:true });
+  }
+  await saveData('marcas');
+  closeModal();
+  renderMarcas();
+  notify('✅ Marca salva!', nome);
+}
+
+async function deleteMarca(id) {
+  if(!confirm('Excluir esta marca? Os modelos vinculados também serão removidos.')) return;
+  DATA.marcas = DATA.marcas.filter(x=>x.id!==id);
+  DATA.modelos = (DATA.modelos||[]).filter(x=>x.marca_id!==id);
+  await saveData('marcas');
+  await saveData('modelos');
+  renderMarcas();
+  notify('🗑 Marca removida!', '');
+}
+
+// ==================== MODELOS ====================
+function renderModelos() {
+  document.getElementById('topbar-actions').innerHTML =
+    `<button class="btn btn-primary" onclick="openModeloModal()">+ Novo Modelo</button>`;
+
+  const marcasAtivas = (DATA.marcas||[]).filter(m=>m.ativo);
+
+  const rows = (DATA.modelos||[]).length ? (DATA.modelos||[]).map(mo => {
+    const marca = (DATA.marcas||[]).find(m=>m.id===mo.marca_id);
+    return `<tr>
+      <td class="fw-bold">${marca?.nome||'—'}</td>
+      <td>${mo.nome}</td>
+      <td><span class="badge ${mo.ativo?'badge-green':'badge-red'}">${mo.ativo?'Ativo':'Inativo'}</span></td>
+      <td><div class="flex gap-8">
+        <button class="btn btn-sm btn-secondary" onclick="openModeloModal('${mo.id}')">✏</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteModelo('${mo.id}')">🗑</button>
+      </div></td>
+    </tr>`;}).join('') :
+    `<tr><td colspan="4" class="empty-state">Nenhum modelo cadastrado</td></tr>`;
+
+  document.getElementById('content').innerHTML = `
+    <div class="card">
+      <div class="card-title mb-16">🚘 Modelos Cadastrados</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Marca</th><th>Modelo</th><th>Status</th><th></th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+function openModeloModal(id) {
+  const mo = id ? (DATA.modelos||[]).find(x=>x.id===id) : null;
+  const marcasAtivas = (DATA.marcas||[]).filter(m=>m.ativo);
+  document.getElementById('modal-title').textContent = mo ? 'Editar Modelo' : 'Novo Modelo';
+  document.getElementById('modal-body').innerHTML = `
+    <div class="form-group">
+      <label>Marca</label>
+      <select class="form-control" id="modelo-marca">
+        <option value="">-- Selecione --</option>
+        ${marcasAtivas.map(m=>`<option value="${m.id}" ${mo?.marca_id===m.id?'selected':''}>${m.nome}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Nome do Modelo</label>
+      <input class="form-control" id="modelo-nome" value="${mo?.nome||''}" placeholder="Ex: Hilux">
+    </div>
+    <div class="form-group">
+      <label>Status</label>
+      <select class="form-control" id="modelo-ativo">
+        <option value="1" ${(!mo||mo.ativo)?'selected':''}>Ativo</option>
+        <option value="0" ${mo&&!mo.ativo?'selected':''}>Inativo</option>
+      </select>
+    </div>`;
+  document.getElementById('modal-footer').innerHTML = `
+    <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+    <button class="btn btn-primary" onclick="saveModelo('${id||''}')">Salvar</button>`;
+  openModal();
+}
+
+async function saveModelo(id) {
+  const marca_id = document.getElementById('modelo-marca').value;
+  const nome     = document.getElementById('modelo-nome').value.trim();
+  if(!marca_id) { alert('Selecione a marca.'); return; }
+  if(!nome)     { alert('Informe o nome do modelo.'); return; }
+  if(!DATA.modelos) DATA.modelos = [];
+  if(id) {
+    const mo = DATA.modelos.find(x=>x.id===id);
+    if(mo) { mo.nome=nome; mo.marca_id=marca_id; mo.ativo=document.getElementById('modelo-ativo').value==='1'; }
+  } else {
+    DATA.modelos.push({ id:uid(), nome, marca_id, ativo:true });
+  }
+  await saveData('modelos');
+  closeModal();
+  renderModelos();
+  notify('✅ Modelo salvo!', nome);
+}
+
+async function deleteModelo(id) {
+  if(!confirm('Excluir este modelo?')) return;
+  DATA.modelos = DATA.modelos.filter(x=>x.id!==id);
+  await saveData('modelos');
+  renderModelos();
+  notify('🗑 Modelo removido!', '');
 }
 
 // ==================== UTILS ====================
