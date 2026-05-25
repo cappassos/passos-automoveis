@@ -631,11 +631,24 @@ async function loadData() {
         const localUsers = loadUsers();
         try { await SB.set('usuarios', localUsers); } catch(e) {}
       } else if(Array.isArray(usersRemote) && usersRemote.length > 0) {
-        localStorage.setItem('passos_usuarios', JSON.stringify(usersRemote));
         USERS = usersRemote;
         // Garante senha do admin sempre do código
         const ai = USERS.findIndex(x=>x.id==='adm');
-        if(ai>=0) USERS[ai].pass = DEFAULT_USERS.find(x=>x.id==='adm').pass;
+        if(ai>=0) {
+          USERS[ai].pass = DEFAULT_USERS.find(x=>x.id==='adm').pass;
+          // Garante que admin sempre tem todas as telas
+          USERS[ai].telas = [...ALL_TELAS, 'usuarios'];
+        }
+        // Garante que todos os usuários têm telas definidas
+        USERS.forEach(u => {
+          if(!u.telas || u.telas.length === 0) {
+            const def = DEFAULT_USERS.find(x=>x.id===u.id);
+            if(def) u.telas = def.telas;
+          }
+        });
+        localStorage.setItem('passos_usuarios', JSON.stringify(USERS));
+        // Salva de volta com telas atualizadas
+        try { await SB.set('usuarios', USERS); } catch(e) {}
       }
     } catch(e) {
       // Fallback para local se Supabase falhar
