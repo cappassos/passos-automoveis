@@ -507,24 +507,51 @@ function toggleSenha() {
   }
 })();
 
-function doLogin() {
+async function doLogin() {
   const u = document.getElementById('login-user').value.trim();
   const p = document.getElementById('login-pass').value.trim();
-  // Garante senha do admin sempre do código
-  const allUsers = [...DEFAULT_USERS];
-  const savedUsers = loadUsers();
-  savedUsers.forEach(su => {
-    const idx = allUsers.findIndex(x => x.id === su.id);
-    if(idx >= 0) {
-      // mantém senha do código para admin, resto do localStorage
-      if(su.id !== 'adm') allUsers[idx] = {...su, pass: su.pass};
+  const errEl = document.getElementById('login-error');
+  const btn = document.querySelector('.btn-login');
+  btn.textContent = 'Verificando...';
+  btn.disabled = true;
+
+  // Busca usuários do Supabase (fonte principal)
+  let allUsers = [...DEFAULT_USERS];
+  try {
+    const remote = await SB.get('usuarios', 'null');
+    if(Array.isArray(remote) && remote.length > 0) {
+      // Mescla: remoto prevalece, mas admin sempre usa senha do código
+      allUsers = remote;
+      const ai = allUsers.findIndex(x=>x.id==='adm');
+      if(ai>=0) allUsers[ai].pass = DEFAULT_USERS.find(x=>x.id==='adm').pass;
+      // Salva no localStorage como cache
+      localStorage.setItem('passos_usuarios', JSON.stringify(allUsers));
     } else {
-      allUsers.push(su);
+      // Supabase vazio ou offline — usa localStorage
+      const saved = loadUsers();
+      if(saved.length > 0) {
+        allUsers = saved;
+        const ai = allUsers.findIndex(x=>x.id==='adm');
+        if(ai>=0) allUsers[ai].pass = DEFAULT_USERS.find(x=>x.id==='adm').pass;
+      }
     }
-  });
+  } catch(e) {
+    // Offline — usa localStorage
+    const saved = loadUsers();
+    if(saved.length > 0) {
+      allUsers = saved;
+      const ai = allUsers.findIndex(x=>x.id==='adm');
+      if(ai>=0) allUsers[ai].pass = DEFAULT_USERS.find(x=>x.id==='adm').pass;
+    }
+  }
+
+  btn.textContent = 'ENTRAR NO SISTEMA';
+  btn.disabled = false;
+
   const found = allUsers.find(x => x.user === u && x.pass === p);
-  if(!found) { document.getElementById('login-error').textContent = 'Usuário ou senha inválidos.'; return; }
-  if(!found.ativo) { document.getElementById('login-error').textContent = 'Usuário inativo. Fale com o administrador.'; return; }
+  if(!found) { errEl.textContent = 'Usuário ou senha inválidos.'; return; }
+  if(!found.ativo) { errEl.textContent = 'Usuário inativo. Fale com o administrador.'; return; }
+
   currentUser = found;
   USERS = allUsers;
   const lembrar = document.getElementById('lembrar').checked;
