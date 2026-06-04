@@ -1416,7 +1416,7 @@ function renderVeiculosList(filtro) {
             oninput="renderVeiculosList(this.value)">
         </div>
         <select class="form-control" style="width:150px" onchange="filterVeiculosStatus(this.value)" id="filtro-status">
-          <option value="">Todos status</option>
+          <option value="">Em estoque</option>
           <option value="disponivel">Disponível</option>
           <option value="reservado">Reservado</option>
           <option value="vendido">Vendido</option>
@@ -1431,7 +1431,12 @@ function renderVeiculosList(filtro) {
   if(inputEl && inputEl.value !== _veicFiltro) inputEl.value = _veicFiltro;
 
   let veiculos = DATA.veiculos;
-  if(_veicStatus) veiculos = veiculos.filter(v => v.status === _veicStatus);
+  if(_veicStatus) {
+    veiculos = veiculos.filter(v => v.status === _veicStatus);
+  } else {
+    // Por padrão, ocultar vendidos (aparecem apenas quando filtro "Vendido" for selecionado)
+    veiculos = veiculos.filter(v => v.status !== 'vendido');
+  }
   if(_veicFiltro) {
     const q = _veicFiltro.toLowerCase();
     veiculos = veiculos.filter(v =>
