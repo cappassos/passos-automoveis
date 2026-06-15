@@ -3421,6 +3421,37 @@ async function initApp() {
     updateBadges();
   }, 60000);
 }
+
+// Ping para manter a conexão Supabase ativa
+function startSupabasePing() {
+  setInterval(async ()=>{
+    try {
+      if(window.supabase) {
+        // Query leve que não bloqueia a base - apenas verifica a conexão
+        await window.supabase.from('config').select('*').limit(1);
+        console.log('🔄 Ping Supabase - Conexão ativa');
+      }
+    } catch(err) {
+      console.warn('⚠️ Ping falhou:', err.message);
+    }
+  }, 30 * 60 * 1000); // A cada 30 minutos
+}
+
+// Iniciar ping quando Supabase estiver pronto
+function initPing() {
+  if(window.supabase) {
+    startSupabasePing();
+  } else {
+    setTimeout(initPing, 1000);
+  }
+}
+
+// Chamar ao inicializar a página
+if(document.readyState==='loading') {
+  document.addEventListener('DOMContentLoaded', initPing);
+} else {
+  initPing();
+}
 </script>
 </body>
 </html>
