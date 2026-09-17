@@ -3611,7 +3611,9 @@ function printEstilos(orient) {
     .t-green{color:#1a7f37;border-color:#1a7f37;background:#eaf6ec}
     .t-blue{color:#1558a8;border-color:#1558a8;background:#e9f1fb}
     .t-gray{color:#666;border-color:#bbb;background:#f2f2f2}
+    tfoot{display:table-row-group}
     tfoot td{background:#f0f0f0;font-weight:800;border-top:2px solid #2b2b2b}
+    tfoot tr{page-break-inside:avoid}
     .rep-footer{text-align:center;font-size:9px;color:#999;border-top:1px solid #ddd;padding-top:4px;margin-top:14px}
     .vazio{text-align:center;padding:26px;color:#999;font-style:italic}
     .rep-toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;
@@ -3623,7 +3625,7 @@ function printEstilos(orient) {
       .no-print{display:none !important}
       body{background:#fff;padding:0}
       .sheet{box-shadow:none;padding:0;border-radius:0}
-      .rep-footer{position:fixed;bottom:4mm;left:0;right:0;margin:0}
+      .rep-footer{margin-top:10px}
     }
   `;
 }
