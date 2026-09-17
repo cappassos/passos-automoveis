@@ -347,6 +347,7 @@ tbody td { padding:12px 16px; font-size:14px; }
           <div class="user-name" id="user-name">Admin</div>
           <div class="user-role" id="user-role">Administrador</div>
         </div>
+        <button class="btn-logout" onclick="openBackupModal()" title="Backup dos dados" style="margin-right:4px">💾</button>
         <button class="btn-logout" onclick="doLogout()" title="Sair">⏻</button>
       </div>
     </div>
@@ -393,11 +394,12 @@ const SB_HDR  = { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY, 'Conten
 // Camada de acesso Supabase (tabela passos_store — chave/valor JSONB)
 const SB = {
   async get(chave, fallback='[]') {
-    try {
-      const r = await fetch(`${SB_URL}/rest/v1/passos_store?chave=eq.${chave}&select=valor`, {headers:SB_HDR});
-      const d = await r.json();
-      if(d && d[0]) return d[0].valor;
-    } catch(e) {}
+    // Importante: falha de rede/HTTP deve ESTOURAR erro, para não confundir
+    // "sem conexão" com "não há registros" (o que apagaria o cache local).
+    const r = await fetch(`${SB_URL}/rest/v1/passos_store?chave=eq.${chave}&select=valor`, {headers:SB_HDR});
+    if(!r.ok) throw new Error('Supabase HTTP ' + r.status + ' (' + chave + ')');
+    const d = await r.json();
+    if(d && d[0] && d[0].valor !== null && d[0].valor !== undefined) return d[0].valor;
     return JSON.parse(fallback);
   },
   async set(chave, valor) {
@@ -647,13 +649,21 @@ function loadDataLocal() {
 
 const CHAVES = ['veiculos','clientes','vendedores','gastos','vendas','solicitacoes','metas','categorias','fornecedores','marcas','modelos'];
 
-async function loadData() {
-  const isLocal = location.protocol === 'file:';
+function setSyncStatus(estado, texto) {
+  const dot = document.getElementById('sync-dot');
+  const txt = document.getElementById('sync-text');
+  const cores = { ok:'var(--success)', aviso:'var(--warning)', erro:'var(--danger)' };
+  if(dot) dot.style.background = cores[estado] || cores.ok;
+  if(txt) txt.textContent = texto;
+}
 
-  if(!isLocal) {
-    // Online: carrega do Supabase
+async function loadData() {
+  // Sempre tenta a nuvem (inclusive quando o arquivo é aberto direto do PC).
+  // Só cai para o localStorage se a conexão realmente falhar.
+  {
     try {
-      document.getElementById('content').innerHTML =
+      const contentEl = document.getElementById('content');
+      if(contentEl) contentEl.innerHTML =
         '<div class="empty-state"><div class="empty-icon">☁️</div><div>Carregando dados da nuvem...</div></div>';
       const results = await Promise.all(CHAVES.map(async k => {
         const val = await SB.get(k, k === 'metas' ? '{}' : '[]');
@@ -661,6 +671,7 @@ async function loadData() {
         return [k, val];
       }));
       results.forEach(([k, val]) => { DATA[k] = val; });
+      setSyncStatus('ok', 'Online');
       // Sincronizar usuários
       const usersRemote = await SB.get('usuarios', 'null');
       if(!usersRemote || (Array.isArray(usersRemote) && usersRemote.length === 0)) {
@@ -687,12 +698,13 @@ async function loadData() {
         try { await SB.set('usuarios', USERS); } catch(e) {}
       }
     } catch(e) {
-      // Fallback para local se Supabase falhar
+      // Fallback para o cache local se o Supabase falhar
+      console.warn('Falha ao carregar da nuvem:', e);
       loadDataLocal();
+      setSyncStatus('erro', 'Sem conexão');
+      setTimeout(() => notify('⚠ Sem conexão com a nuvem',
+        'Exibindo os dados salvos neste dispositivo. Verifique a internet e recarregue a página.'), 800);
     }
-  } else {
-    // Local: usa apenas localStorage
-    loadDataLocal();
   }
 
   if(!DATA.categorias.length) { seedCategorias(); }
@@ -1390,7 +1402,9 @@ const MARCAS_MODELOS = new Proxy({}, { get(t,k) { return getMarcasModelos()[k]; 
 
 function renderVeiculos() {
   const topbar = document.getElementById('topbar-actions');
-  topbar.innerHTML = `<button class="btn btn-primary" onclick="openVeiculoModal()">+ Novo Veículo</button>`;
+  topbar.innerHTML = `
+    <button class="btn btn-secondary" onclick="openPrintModal('veiculos')">🖨 Imprimir PDF</button>
+    <button class="btn btn-primary" onclick="openVeiculoModal()">+ Novo Veículo</button>`;
   renderVeiculosList();
 }
 
@@ -2154,7 +2168,9 @@ async function deleteGasto(id) {
 
 // ==================== ESTOQUE ====================
 function renderEstoque() {
-  document.getElementById('topbar-actions').innerHTML = `<button class="btn btn-primary" onclick="openVeiculoModal()">+ Adicionar ao Estoque</button>`;
+  document.getElementById('topbar-actions').innerHTML = `
+    <button class="btn btn-secondary" onclick="openPrintModal('estoque')">🖨 Imprimir PDF</button>
+    <button class="btn btn-primary" onclick="openVeiculoModal()">+ Adicionar ao Estoque</button>`;
   const veics = DATA.veiculos.filter(v=>v.status!=='vendido');
   const totalValorCompra = veics.reduce((s,v)=>s+(v.valor_compra||0),0);
   const totalValorVenda = veics.reduce((s,v)=>s+(v.valor_venda||0),0);
@@ -3364,6 +3380,592 @@ async function deleteModelo(id) {
 }
 
 // ==================== UTILS ====================
+// ==================== IMPRESSÃO EM PDF ====================
+const EMPRESA = {
+  nome: 'PASSOS AUTOMÓVEIS',
+  sub: 'Sistema de Gestão',
+  contato: ''   // ex: 'Rua X, 123 - Itajaí/SC  |  (47) 99999-0000'
+};
+
+function getLogoB64() {
+  const img = document.querySelector('.login-logo img') || document.querySelector('.sidebar-logo img');
+  return img ? img.src : '';
+}
+
+const PRINT_TITULOS = {
+  veiculos: 'Cadastro de Veículos',
+  estoque:  'Lançamento de Estoque'
+};
+
+// Definição das colunas disponíveis em cada relatório.
+// cell(v, x) recebe o veículo e um contexto com gastos/custo/margem já calculados.
+const PRINT_COLUNAS = {
+  veiculos: [
+    { id:'veiculo', label:'Veículo',     cls:'b',        padrao:true,  cell:v=>`${v.marca||''} ${v.modelo||''}` },
+    { id:'versao',  label:'Versão',      cls:'',         padrao:true,  cell:v=>v.versao||'-' },
+    { id:'ano',     label:'Ano',         cls:'c',        padrao:true,  cell:v=>v.ano||'-' },
+    { id:'placa',   label:'Placa',       cls:'c orange', padrao:true,  cell:v=>v.placa||'-' },
+    { id:'cor',     label:'Cor',         cls:'',         padrao:true,  cell:v=>v.cor||'-' },
+    { id:'km',      label:'KM',          cls:'r',        padrao:true,  cell:v=>(v.km||0).toLocaleString('pt-BR') },
+    { id:'comb',    label:'Combustível', cls:'',         padrao:true,  cell:v=>v.combustivel||'-' },
+    { id:'cambio',  label:'Câmbio',      cls:'',         padrao:false, cell:v=>v.transmissao||'-' },
+    { id:'tipo',    label:'Tipo',        cls:'c',        padrao:true,  cell:v=>v.tipo_veiculo==='consignado'
+        ? '<span class="tag t-blue">Consignado</span>' : '<span class="tag t-green">Próprio</span>' },
+    { id:'entrada', label:'Entrada',     cls:'c',        padrao:false, cell:v=>v.data_entrada||'-' },
+    { id:'compra',  label:'Vlr Compra',  cls:'r',        padrao:true,  cell:v=>fmt(v.valor_compra), total:v=>v.valor_compra||0 },
+    { id:'gastos',  label:'Gastos',      cls:'r red',    padrao:false, cell:(v,x)=>x.gastos?fmt(x.gastos):'-', total:(v,x)=>x.gastos },
+    { id:'venda',   label:'Vlr Venda',   cls:'r b',      padrao:true,  cell:v=>fmt(v.valor_venda), total:v=>v.valor_venda||0 },
+    { id:'status',  label:'Status',      cls:'c',        padrao:true,  cell:v=>printTagStatus(v.status) }
+  ],
+  estoque: [
+    { id:'veiculo', label:'Veículo',     cls:'b',        padrao:true,  cell:v=>`${v.marca||''} ${v.modelo||''} <span style="color:#888">${v.versao||''}</span>` },
+    { id:'ano',     label:'Ano',         cls:'c',        padrao:true,  cell:v=>v.ano||'-' },
+    { id:'placa',   label:'Placa',       cls:'c orange', padrao:true,  cell:v=>v.placa||'-' },
+    { id:'cor',     label:'Cor',         cls:'',         padrao:false, cell:v=>v.cor||'-' },
+    { id:'km',      label:'KM',          cls:'r',        padrao:true,  cell:v=>(v.km||0).toLocaleString('pt-BR') },
+    { id:'comb',    label:'Combustível', cls:'',         padrao:true,  cell:v=>v.combustivel||'-' },
+    { id:'cambio',  label:'Câmbio',      cls:'',         padrao:false, cell:v=>v.transmissao||'-' },
+    { id:'entrada', label:'Entrada',     cls:'c',        padrao:true,  cell:v=>v.data_entrada||'-' },
+    { id:'compra',  label:'Vlr Compra',  cls:'r',        padrao:true,  cell:v=>fmt(v.valor_compra), total:v=>v.valor_compra||0 },
+    { id:'gastos',  label:'Gastos',      cls:'r red',    padrao:true,  cell:(v,x)=>x.gastos?fmt(x.gastos):'-', total:(v,x)=>x.gastos },
+    { id:'custo',   label:'Custo Total', cls:'r',        padrao:true,  cell:(v,x)=>fmt(x.custo), total:(v,x)=>x.custo },
+    { id:'venda',   label:'Vlr Venda',   cls:'r b',      padrao:true,  cell:v=>fmt(v.valor_venda), total:v=>v.valor_venda||0 },
+    { id:'margem',  label:'Margem',      cls:'r',        padrao:true,
+      cell:(v,x)=>`<span class="${x.margem>=0?'green':'red'}">${fmt(x.margem)} <span style="font-size:9px">(${x.pct}%)</span></span>`,
+      total:(v,x)=>x.margem },
+    { id:'status',  label:'Status',      cls:'c',        padrao:true,  cell:v=>printTagStatus(v.status) }
+  ]
+};
+
+function printTagStatus(st) {
+  const map = { disponivel:['t-green','Disponível'], reservado:['t-blue','Reservado'], vendido:['t-gray','Vendido'] };
+  const [cls,lbl] = map[st] || ['t-gray', st||'-'];
+  return `<span class="tag ${cls}">${lbl}</span>`;
+}
+
+// Lembra as escolhas do usuário entre impressões
+function getPrefsImpressao(tipo) {
+  try {
+    const p = JSON.parse(localStorage.getItem('passos_print_' + tipo) || 'null');
+    if(p && Array.isArray(p.colunas) && p.colunas.length) return p;
+  } catch(e) {}
+  return { orient:'landscape', colunas: PRINT_COLUNAS[tipo].filter(c=>c.padrao).map(c=>c.id) };
+}
+
+function salvarPrefsImpressao(tipo, prefs) {
+  try { localStorage.setItem('passos_print_' + tipo, JSON.stringify(prefs)); } catch(e) {}
+}
+
+function openPrintModal(tipo) {
+  const prefs = getPrefsImpressao(tipo);
+  const cols = PRINT_COLUNAS[tipo];
+
+  document.getElementById('modal-title').textContent = '🖨 Imprimir PDF — ' + (PRINT_TITULOS[tipo] || '');
+  document.getElementById('modal-body').innerHTML = `
+    <div class="form-group">
+      <label>Orientação da página</label>
+      <div style="display:flex;gap:12px;margin-top:8px">
+        <label style="flex:1;cursor:pointer;text-transform:none;letter-spacing:0;margin:0">
+          <input type="radio" name="print-orient" value="portrait" style="display:none" ${prefs.orient==='portrait'?'checked':''} onchange="updateOrientSel()">
+          <div id="opt-portrait" class="print-opt">
+            <div style="font-size:26px;line-height:1">📄</div>
+            <div style="font-weight:700;margin-top:4px">Retrato</div>
+            <div style="font-size:11px;color:var(--text-muted)">Vertical (A4)</div>
+          </div>
+        </label>
+        <label style="flex:1;cursor:pointer;text-transform:none;letter-spacing:0;margin:0">
+          <input type="radio" name="print-orient" value="landscape" style="display:none" ${prefs.orient!=='portrait'?'checked':''} onchange="updateOrientSel()">
+          <div id="opt-landscape" class="print-opt">
+            <div style="font-size:26px;line-height:1;transform:rotate(90deg)">📄</div>
+            <div style="font-weight:700;margin-top:4px">Paisagem</div>
+            <div style="font-size:11px;color:var(--text-muted)">Horizontal (A4)</div>
+          </div>
+        </label>
+      </div>
+    </div>
+
+    <div class="form-group" style="margin-top:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <label style="margin:0">Colunas do relatório</label>
+        <div style="display:flex;gap:6px">
+          <button type="button" class="btn btn-sm btn-secondary" onclick="marcarColunas('${tipo}','todas')">Todas</button>
+          <button type="button" class="btn btn-sm btn-secondary" onclick="marcarColunas('${tipo}','padrao')">Padrão</button>
+          <button type="button" class="btn btn-sm btn-secondary" onclick="marcarColunas('${tipo}','nenhuma')">Limpar</button>
+        </div>
+      </div>
+      <div id="print-cols" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;margin-top:10px;
+           max-height:230px;overflow-y:auto;padding:10px;background:var(--darker);border:1px solid var(--border);border-radius:8px">
+        ${cols.map(c => `
+          <label class="print-col" style="display:flex;align-items:center;gap:7px;cursor:pointer;text-transform:none;
+                 letter-spacing:0;margin:0;font-size:13px;color:var(--text);padding:3px 2px">
+            <input type="checkbox" value="${c.id}" ${prefs.colunas.includes(c.id)?'checked':''}
+                   onchange="contarColunas()" style="width:15px;height:15px;accent-color:var(--orange);flex-shrink:0">
+            <span>${c.label}</span>
+          </label>`).join('')}
+      </div>
+      <div id="print-cols-info" style="font-size:12px;color:var(--text-muted);margin-top:8px"></div>
+    </div>
+
+    <style>
+      .print-opt{border:2px solid var(--border);border-radius:10px;padding:12px 8px;text-align:center;transition:.15s;background:var(--darker)}
+      .print-opt.sel{border-color:var(--orange);background:rgba(244,123,32,.12)}
+      .print-col:hover{background:rgba(255,255,255,.04);border-radius:5px}
+    </style>
+  `;
+  document.getElementById('modal-footer').innerHTML = `
+    <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+    <button class="btn btn-primary" onclick="confirmPrint('${tipo}')">🖨 Gerar PDF</button>
+  `;
+  openModal();
+  updateOrientSel();
+  contarColunas();
+}
+
+function updateOrientSel() {
+  const val = (document.querySelector('input[name="print-orient"]:checked')||{}).value || 'landscape';
+  ['portrait','landscape'].forEach(o => {
+    const el = document.getElementById('opt-'+o);
+    if(el) el.classList.toggle('sel', o === val);
+  });
+}
+
+function contarColunas() {
+  const box = document.getElementById('print-cols');
+  if(!box) return;
+  const n = box.querySelectorAll('input:checked').length;
+  const info = document.getElementById('print-cols-info');
+  if(info) info.textContent = n
+    ? `${n} coluna(s) selecionada(s)` + (n > 9 ? ' — com muitas colunas, prefira paisagem.' : '')
+    : 'Selecione ao menos uma coluna.';
+}
+
+function marcarColunas(tipo, modo) {
+  const box = document.getElementById('print-cols');
+  if(!box) return;
+  const padrao = PRINT_COLUNAS[tipo].filter(c=>c.padrao).map(c=>c.id);
+  box.querySelectorAll('input').forEach(i => {
+    i.checked = modo === 'todas' ? true : modo === 'nenhuma' ? false : padrao.includes(i.value);
+  });
+  contarColunas();
+}
+
+function confirmPrint(tipo) {
+  const orient = (document.querySelector('input[name="print-orient"]:checked')||{}).value || 'landscape';
+  const colunas = Array.from(document.querySelectorAll('#print-cols input:checked')).map(i => i.value);
+  if(!colunas.length) {
+    notify('⚠ Aviso', 'Selecione ao menos uma coluna para imprimir.');
+    return;
+  }
+  salvarPrefsImpressao(tipo, { orient, colunas });
+  closeModal();
+  setTimeout(() => printRelatorio(tipo, orient, colunas), 250);
+}
+
+function printCabecalho(titulo, subtitulo) {
+  const logo = getLogoB64();
+  const agora = new Date().toLocaleString('pt-BR', { dateStyle:'short', timeStyle:'short' });
+  return `
+    <div class="rep-header">
+      ${logo ? `<img class="rep-logo" src="${logo}">` : ''}
+      <div class="rep-emp">
+        <div class="rep-nome">${EMPRESA.nome}</div>
+        <div class="rep-sub">${EMPRESA.sub}</div>
+        ${EMPRESA.contato ? `<div class="rep-contato">${EMPRESA.contato}</div>` : ''}
+      </div>
+      <div class="rep-meta">
+        <div class="rep-titulo">${titulo}</div>
+        <div class="rep-data">Emitido em ${agora}</div>
+        ${subtitulo ? `<div class="rep-data">${subtitulo}</div>` : ''}
+      </div>
+    </div>`;
+}
+
+function printEstilos(orient) {
+  return `
+    @page { size: A4 ${orient}; margin: 12mm 10mm 14mm 10mm; }
+    *{box-sizing:border-box}
+    body{font-family:'Barlow',Arial,Helvetica,sans-serif;color:#1a1a1a;margin:0;font-size:11px}
+    .rep-header{display:flex;align-items:center;gap:16px;border-bottom:3px solid #F47B20;padding-bottom:10px;margin-bottom:14px}
+    .rep-logo{height:54px;width:auto}
+    .rep-emp{flex:1}
+    .rep-nome{font-family:'Barlow Condensed',Arial,sans-serif;font-size:21px;font-weight:900;letter-spacing:1px;line-height:1.1}
+    .rep-sub{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#777}
+    .rep-contato{font-size:10px;color:#777;margin-top:2px}
+    .rep-meta{text-align:right}
+    .rep-titulo{font-size:15px;font-weight:800;color:#F47B20;text-transform:uppercase;letter-spacing:.5px}
+    .rep-data{font-size:10px;color:#777}
+    .cards{display:flex;gap:10px;margin-bottom:12px}
+    .card{flex:1;border:1px solid #e0e0e0;border-left:3px solid #F47B20;border-radius:5px;padding:7px 10px}
+    .card-lbl{font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#888}
+    .card-val{font-size:14px;font-weight:800;margin-top:2px}
+    table{width:100%;border-collapse:collapse;margin-top:4px}
+    thead{display:table-header-group}
+    th{background:#2b2b2b;color:#fff;font-size:9.5px;text-transform:uppercase;letter-spacing:.4px;
+       padding:6px 5px;text-align:left;border:1px solid #2b2b2b}
+    td{padding:5px;border:1px solid #e3e3e3;font-size:10px}
+    tbody tr:nth-child(even){background:#fafafa}
+    tr{page-break-inside:avoid}
+    .b{font-weight:700}.r{text-align:right}.c{text-align:center}
+    .green{color:#1a7f37;font-weight:700}.red{color:#c22;font-weight:700}.orange{color:#F47B20;font-weight:700}
+    .tag{display:inline-block;padding:1px 6px;border-radius:9px;font-size:9px;font-weight:700;border:1px solid}
+    .t-green{color:#1a7f37;border-color:#1a7f37;background:#eaf6ec}
+    .t-blue{color:#1558a8;border-color:#1558a8;background:#e9f1fb}
+    .t-gray{color:#666;border-color:#bbb;background:#f2f2f2}
+    tfoot td{background:#f0f0f0;font-weight:800;border-top:2px solid #2b2b2b}
+    .rep-footer{text-align:center;font-size:9px;color:#999;border-top:1px solid #ddd;padding-top:4px;margin-top:14px}
+    .vazio{text-align:center;padding:26px;color:#999;font-style:italic}
+    .rep-toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;
+      background:#1a1a1a;color:#fff;padding:10px 14px;border-radius:6px;margin-bottom:16px;font-size:12px}
+    .rep-toolbar button{background:#F47B20;color:#fff;border:0;padding:9px 18px;border-radius:6px;
+      font-weight:800;cursor:pointer;font-size:12px;font-family:inherit}
+    @media screen { body{background:#eee;padding:18px} .sheet{background:#fff;padding:20px;border-radius:6px;box-shadow:0 2px 12px rgba(0,0,0,.1)} }
+    @media print {
+      .no-print{display:none !important}
+      body{background:#fff;padding:0}
+      .sheet{box-shadow:none;padding:0;border-radius:0}
+      .rep-footer{position:fixed;bottom:4mm;left:0;right:0;margin:0}
+    }
+  `;
+}
+
+// Monta a lista de veículos + contexto financeiro de cada linha
+function printDados(tipo) {
+  let veics;
+  let sub;
+
+  if(tipo === 'veiculos') {
+    veics = DATA.veiculos;
+    if(_veicStatus) veics = veics.filter(v => v.status === _veicStatus);
+    else veics = veics.filter(v => v.status !== 'vendido');
+    if(_veicFiltro) {
+      const q = _veicFiltro.toLowerCase();
+      veics = veics.filter(v => [v.marca,v.modelo,v.versao,v.placa,String(v.ano),v.cor,v.combustivel]
+        .filter(Boolean).some(c => c.toLowerCase().includes(q)));
+    }
+    const filtros = [];
+    if(_veicStatus) filtros.push('Status: ' + _veicStatus);
+    if(_veicFiltro) filtros.push('Busca: "' + _veicFiltro + '"');
+    sub = filtros.length
+      ? `Filtros — ${filtros.join('  |  ')}  (${veics.length} registro(s))`
+      : `Total: ${veics.length} veículo(s)`;
+  } else {
+    veics = DATA.veiculos.filter(v => v.status !== 'vendido');
+    sub = `Posição do estoque — ${veics.length} veículo(s)`;
+  }
+
+  veics = [...veics].sort((a,b) => ((a.marca||'')+(a.modelo||'')).localeCompare((b.marca||'')+(b.modelo||'')));
+
+  const linhas = veics.map(v => {
+    const gastos = DATA.gastos.filter(g => g.veiculo_id === v.id).reduce((s,g) => s + (g.valor||0), 0);
+    const custo  = (v.valor_compra||0) + gastos;
+    const margem = (v.valor_venda||0) - custo;
+    const pct    = custo ? ((margem/custo)*100).toFixed(1) : '0.0';
+    return { v, x: { gastos, custo, margem, pct } };
+  });
+
+  return { linhas, sub };
+}
+
+function buildRelatorio(tipo, orient, colIds) {
+  const cols = PRINT_COLUNAS[tipo].filter(c => colIds.includes(c.id));
+  const { linhas, sub } = printDados(tipo);
+
+  const thead = cols.map(c => `<th class="${c.cls.replace('b','').replace('orange','').replace('red','').trim()}">${c.label}</th>`).join('');
+
+  const tbody = linhas.map(({v,x}) =>
+    `<tr>${cols.map(c => `<td class="${c.cls}">${c.cell(v,x)}</td>`).join('')}</tr>`
+  ).join('');
+
+  // Totais das colunas numéricas
+  const temTotal = cols.some(c => c.total) && linhas.length;
+  let tfoot = '';
+  if(temTotal) {
+    const cells = cols.map((c,i) => {
+      if(c.total) {
+        const soma = linhas.reduce((s,{v,x}) => s + (c.total(v,x)||0), 0);
+        const cor = c.id === 'margem' ? (soma>=0?'green':'red') : '';
+        return `<td class="r ${cor}">${fmt(soma)}</td>`;
+      }
+      return i === 0 ? `<td class="r">TOTAIS (${linhas.length})</td>` : '<td></td>';
+    }).join('');
+    tfoot = `<tfoot><tr>${cells}</tr></tfoot>`;
+  }
+
+  // Cards de resumo (apenas no relatório de estoque)
+  let cards = '';
+  if(tipo === 'estoque') {
+    const mostraFin = colIds.some(id => ['compra','gastos','custo','venda','margem'].includes(id));
+    const tCusto = linhas.reduce((s,{x}) => s + x.custo, 0);
+    const tVenda = linhas.reduce((s,{v}) => s + (v.valor_venda||0), 0);
+    cards = `<div class="cards">
+      <div class="card"><div class="card-lbl">Em Estoque</div><div class="card-val">${linhas.length} veículos</div></div>
+      ${mostraFin ? `
+        <div class="card"><div class="card-lbl">Custo Total</div><div class="card-val">${fmt(tCusto)}</div></div>
+        <div class="card"><div class="card-lbl">Valor de Venda</div><div class="card-val">${fmt(tVenda)}</div></div>
+        <div class="card"><div class="card-lbl">Margem Potencial</div><div class="card-val ${tVenda-tCusto>=0?'green':'red'}">${fmt(tVenda-tCusto)}</div></div>` : ''}
+    </div>`;
+  }
+
+  return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+    <title>${PRINT_TITULOS[tipo]}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;700;800;900&family=Barlow+Condensed:wght@700;800;900&display=swap" rel="stylesheet">
+    <style>${printEstilos(orient)}</style></head><body>
+    <div class="rep-toolbar no-print">
+      <span>Pré-visualização do relatório — confira os dados antes de imprimir.</span>
+      <button onclick="window.print()">🖨 Imprimir / Salvar em PDF</button>
+    </div>
+    <div class="sheet">
+    ${printCabecalho(PRINT_TITULOS[tipo], sub)}
+    ${cards}
+    <table>
+      <thead><tr>${thead}</tr></thead>
+      <tbody>${tbody || `<tr><td colspan="${cols.length}" class="vazio">Nenhum registro encontrado</td></tr>`}</tbody>
+      ${tfoot}
+    </table>
+    <div class="rep-footer">${EMPRESA.nome} — Documento gerado automaticamente pelo sistema</div>
+    </div>
+    <script>if(document.body.classList.contains('auto-print')){setTimeout(function(){window.print();},300);}<\/script>
+    </body></html>`;
+}
+
+function printRelatorio(tipo, orient, colIds) {
+  if(!DATA || !Array.isArray(DATA.veiculos)) {
+    notify('⚠ Aviso', 'Os dados ainda não foram carregados. Aguarde e tente novamente.');
+    return;
+  }
+
+  const html = buildRelatorio(tipo, orient, colIds);
+
+  // 1ª opção: janela de pré-visualização (o usuário vê o relatório antes de salvar)
+  let win = null;
+  try { win = window.open('', '_blank'); } catch(e) { win = null; }
+
+  if(win && win.document) {
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    return;
+  }
+
+  // 2ª opção (pop-up bloqueado): iframe fora da tela, com tamanho real
+  const frame = document.createElement('iframe');
+  frame.setAttribute('aria-hidden', 'true');
+  frame.style.cssText = 'position:fixed;left:-10000px;top:0;width:1200px;height:900px;border:0;opacity:0';
+  document.body.appendChild(frame);
+
+  const doc = frame.contentWindow.document;
+  doc.open();
+  doc.write(html.replace('<body>', '<body class="auto-print">'));
+  doc.close();
+
+  setTimeout(() => {
+    try {
+      frame.contentWindow.focus();
+      frame.contentWindow.print();
+    } catch(e) {
+      notify('⚠ Erro', 'Libere os pop-ups deste site para gerar o PDF.');
+    }
+    setTimeout(() => frame.remove(), 3000);
+  }, 800);
+}
+
+// ==================== BACKUP ====================
+const BACKUP_DIAS = 7;                       // periodicidade do lembrete
+const BACKUP_LS   = 'passos_ultimo_backup';  // data do último backup feito
+
+function ultimoBackup() {
+  try { return localStorage.getItem(BACKUP_LS) || null; } catch(e) { return null; }
+}
+
+function diasDesdeBackup() {
+  const d = ultimoBackup();
+  if(!d) return null;
+  return Math.floor((Date.now() - new Date(d).getTime()) / 86400000);
+}
+
+function textoUltimoBackup() {
+  const d = ultimoBackup();
+  if(!d) return 'Nenhum backup foi feito ainda.';
+  const dias = diasDesdeBackup();
+  const data = new Date(d).toLocaleString('pt-BR', { dateStyle:'short', timeStyle:'short' });
+  if(dias === 0) return `Último backup: hoje, às ${new Date(d).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}.`;
+  if(dias === 1) return `Último backup: ontem (${data}).`;
+  return `Último backup: há ${dias} dias (${data}).`;
+}
+
+function gerarBackup() {
+  try {
+    const conteudo = {
+      sistema: 'Passos Automóveis',
+      versao: 1,
+      gerado_em: new Date().toISOString(),
+      gerado_por: (typeof currentUser !== 'undefined' && currentUser) ? currentUser.user : '',
+      resumo: {
+        veiculos: (DATA.veiculos||[]).length,
+        clientes: (DATA.clientes||[]).length,
+        vendas: (DATA.vendas||[]).length,
+        gastos: (DATA.gastos||[]).length
+      },
+      dados: {}
+    };
+    CHAVES.forEach(k => { conteudo.dados[k] = DATA[k]; });
+    try { conteudo.usuarios = JSON.parse(localStorage.getItem('passos_usuarios') || 'null'); } catch(e) {}
+
+    const hoje = new Date();
+    const nome = 'passos-backup-' + hoje.getFullYear() + '-' +
+      String(hoje.getMonth()+1).padStart(2,'0') + '-' +
+      String(hoje.getDate()).padStart(2,'0') + '.json';
+
+    const blob = new Blob([JSON.stringify(conteudo, null, 2)], { type:'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = nome;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1500);
+
+    localStorage.setItem(BACKUP_LS, new Date().toISOString());
+    notify('💾 Backup salvo', 'Arquivo ' + nome + ' baixado para a pasta de downloads.');
+    return true;
+  } catch(e) {
+    console.error('Erro no backup:', e);
+    notify('⚠ Erro', 'Não foi possível gerar o arquivo de backup.');
+    return false;
+  }
+}
+
+function openBackupModal() {
+  const dias = diasDesdeBackup();
+  const atrasado = dias === null || dias >= BACKUP_DIAS;
+  document.getElementById('modal-title').textContent = '💾 Backup dos dados';
+  document.getElementById('modal-body').innerHTML = `
+    <div style="background:${atrasado?'rgba(244,123,32,.12)':'rgba(46,160,67,.12)'};
+         border-left:3px solid ${atrasado?'var(--orange)':'var(--success)'};
+         border-radius:6px;padding:12px 14px;margin-bottom:16px">
+      <div style="font-weight:700;font-size:14px;margin-bottom:3px">
+        ${atrasado ? '⚠ Backup recomendado' : '✓ Backup em dia'}
+      </div>
+      <div style="font-size:13px;color:var(--text-muted)">${textoUltimoBackup()}</div>
+    </div>
+
+    <div style="font-size:13px;color:var(--text-muted);line-height:1.6;margin-bottom:16px">
+      O backup salva no seu computador um arquivo <b>.json</b> com todos os veículos, clientes,
+      vendedores, gastos, vendas e cadastros. O sistema lembra você a cada ${BACKUP_DIAS} dias.
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px">
+      <div style="background:var(--darker);border:1px solid var(--border);border-radius:6px;padding:8px;text-align:center">
+        <div style="font-size:18px;font-weight:800;color:var(--orange)">${(DATA.veiculos||[]).length}</div>
+        <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase">Veículos</div></div>
+      <div style="background:var(--darker);border:1px solid var(--border);border-radius:6px;padding:8px;text-align:center">
+        <div style="font-size:18px;font-weight:800;color:var(--orange)">${(DATA.clientes||[]).length}</div>
+        <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase">Clientes</div></div>
+      <div style="background:var(--darker);border:1px solid var(--border);border-radius:6px;padding:8px;text-align:center">
+        <div style="font-size:18px;font-weight:800;color:var(--orange)">${(DATA.vendas||[]).length}</div>
+        <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase">Vendas</div></div>
+      <div style="background:var(--darker);border:1px solid var(--border);border-radius:6px;padding:8px;text-align:center">
+        <div style="font-size:18px;font-weight:800;color:var(--orange)">${(DATA.gastos||[]).length}</div>
+        <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase">Gastos</div></div>
+    </div>
+
+    <div class="form-group">
+      <label>Restaurar backup</label>
+      <input type="file" id="backup-file" accept=".json,application/json" class="form-control"
+             style="padding:8px" onchange="restaurarBackup(this)">
+      <div style="font-size:12px;color:var(--text-muted);margin-top:6px">
+        Substitui os dados atuais pelos do arquivo. Use apenas se precisar recuperar informações perdidas.
+      </div>
+    </div>
+  `;
+  document.getElementById('modal-footer').innerHTML = `
+    <button class="btn btn-secondary" onclick="closeModal()">Fechar</button>
+    <button class="btn btn-primary" onclick="gerarBackup()">💾 Baixar backup agora</button>
+  `;
+  openModal();
+}
+
+function avisarBackupSemanal() {
+  const dias = diasDesdeBackup();
+  if(dias !== null && dias < BACKUP_DIAS) return;
+
+  document.getElementById('modal-title').textContent = '💾 Backup semanal';
+  document.getElementById('modal-body').innerHTML = `
+    <div style="text-align:center;padding:6px 0 14px">
+      <div style="font-size:40px;line-height:1;margin-bottom:10px">🗄️</div>
+      <div style="font-size:15px;font-weight:700;margin-bottom:6px">Hora de salvar uma cópia dos dados</div>
+      <div style="font-size:13px;color:var(--text-muted);line-height:1.6;max-width:380px;margin:0 auto">
+        ${textoUltimoBackup()}<br>
+        O arquivo será baixado para o seu computador e guarda todos os cadastros do sistema.
+      </div>
+    </div>
+  `;
+  document.getElementById('modal-footer').innerHTML = `
+    <button class="btn btn-secondary" onclick="adiarBackup()">Lembrar amanhã</button>
+    <button class="btn btn-primary" onclick="gerarBackup();closeModal();">💾 Baixar agora</button>
+  `;
+  openModal();
+}
+
+function adiarBackup() {
+  // adia o lembrete por 1 dia sem marcar como backup feito
+  try {
+    const base = new Date();
+    base.setDate(base.getDate() - (BACKUP_DIAS - 1));
+    localStorage.setItem(BACKUP_LS + '_adiado', base.toISOString());
+  } catch(e) {}
+  closeModal();
+  notify('⏰ Lembrete adiado', 'O aviso de backup voltará a aparecer amanhã.');
+}
+
+function restaurarBackup(input) {
+  const file = input.files && input.files[0];
+  if(!file) return;
+
+  const reader = new FileReader();
+  reader.onload = async e => {
+    let bkp;
+    try { bkp = JSON.parse(e.target.result); }
+    catch(err) { notify('⚠ Arquivo inválido', 'Não foi possível ler este arquivo de backup.'); input.value=''; return; }
+
+    if(!bkp || !bkp.dados) {
+      notify('⚠ Arquivo inválido', 'Este arquivo não parece ser um backup do sistema.');
+      input.value = '';
+      return;
+    }
+
+    const data = bkp.gerado_em ? new Date(bkp.gerado_em).toLocaleString('pt-BR') : 'data desconhecida';
+    const r = bkp.resumo || {};
+    const ok = confirm(
+      'Restaurar o backup de ' + data + '?\n\n' +
+      'Conteúdo: ' + (r.veiculos||0) + ' veículos, ' + (r.clientes||0) + ' clientes, ' +
+      (r.vendas||0) + ' vendas.\n\n' +
+      'ATENÇÃO: os dados atuais serão substituídos, inclusive na nuvem.'
+    );
+    if(!ok) { input.value = ''; return; }
+
+    try {
+      for(const k of CHAVES) {
+        if(bkp.dados[k] !== undefined) {
+          DATA[k] = bkp.dados[k];
+          await saveData(k);
+        }
+      }
+      if(bkp.usuarios && Array.isArray(bkp.usuarios) && bkp.usuarios.length) {
+        await saveUsers(bkp.usuarios);
+      }
+      closeModal();
+      notify('✓ Backup restaurado', 'Os dados foram recuperados com sucesso.');
+      buildSidebar();
+      navigate('dashboard');
+    } catch(err) {
+      console.error(err);
+      notify('⚠ Erro', 'Falha ao restaurar. Verifique a conexão e tente novamente.');
+    }
+  };
+  reader.readAsText(file);
+}
+
 function fmt(v) {
   return (v||0).toLocaleString('pt-BR', { style:'currency', currency:'BRL' });
 }
@@ -3402,6 +4004,17 @@ async function initApp() {
   }
   buildSidebar();
   navigate('dashboard');
+
+  // Lembrete de backup semanal (após a tela carregar)
+  setTimeout(() => {
+    try {
+      const adiado = localStorage.getItem(BACKUP_LS + '_adiado');
+      const ref = ultimoBackup() || adiado;
+      if(!ref) { avisarBackupSemanal(); return; }
+      const dias = Math.floor((Date.now() - new Date(ref).getTime()) / 86400000);
+      if(dias >= BACKUP_DIAS) avisarBackupSemanal();
+    } catch(e) {}
+  }, 2500);
 
   // Check solicitacoes periodicamente (a cada 60s)
   setInterval(() => {
