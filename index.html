@@ -2248,7 +2248,7 @@ function renderVendas() {
               <td class="text-muted">${v.data_venda}</td>
               <td class="fw-bold">${veic?`${veic.marca} ${veic.modelo} ${veic.ano}`:'-'}</td>
               <td>${tipoBadge}</td>
-              <td>${cli?.nome||'-'}</td>
+              <td>${cli?.nome||'<span class="text-muted">Não informado</span>'}</td>
               <td>${vend?.nome||'-'}</td>
               <td class="text-orange fw-bold">${isConsig ? fmt(veic?.comissao_consig||0) : fmt(v.valor_venda)}</td>
               <td><span class="badge badge-blue">${v.forma_pgto||'-'}</span></td>
@@ -2286,9 +2286,9 @@ function openVendaModal(id, preselVeicId) {
       </select>
     </div>
     <div class="form-row">
-      <div class="form-group"><label>Cliente</label>
+      <div class="form-group"><label>Cliente <span class="text-muted" style="font-weight:400;text-transform:none">(opcional)</span></label>
         <select class="form-control" id="vd-cli">
-          <option value="">-- Selecione --</option>
+          <option value="">-- Sem cliente / não informado --</option>
           ${DATA.clientes.map(c=>`<option value="${c.id}" ${venda?.cliente_id===c.id?'selected':''}>${c.nome}</option>`).join('')}
         </select>
       </div>
@@ -2367,7 +2367,6 @@ async function saveVenda(id) {
   const vendid = document.getElementById('vd-vend').value;
   const valor = parseFloat(document.getElementById('vd-valor').value)||0;
   if(!vid) { alert('Selecione o veículo.'); return; }
-  if(!cid) { alert('Selecione o cliente.'); return; }
   if(!valor) { alert('Informe o valor.'); return; }
   const existing = id ? DATA.vendas.find(x=>x.id===id) : null;
   // If editing and vehicle changed, restore old vehicle
@@ -2376,7 +2375,7 @@ async function saveVenda(id) {
     if(oldVeic) oldVeic.status = 'disponivel';
   }
   const obj = {
-    id: id||uid(), veiculo_id: vid, cliente_id: cid, vendedor_id: vendid,
+    id: id||uid(), veiculo_id: vid, cliente_id: cid || null, vendedor_id: vendid,
     valor_venda: valor,
     data_venda: document.getElementById('vd-data').value,
     forma_pgto: document.getElementById('vd-pgto').value,
