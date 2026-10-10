@@ -297,6 +297,61 @@ tbody td { padding:12px 16px; font-size:14px; }
 .vehicle-price { font-size:20px; font-weight:800; color:var(--orange); margin-top:10px; }
 .vehicle-actions { display:flex; gap:6px; margin-top:12px; padding-top:12px; border-top:1px solid var(--border); }
 
+/* ===== CARDS DE VEÍCULOS (v2) ===== */
+.vc-resumo{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.vc-res-item{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;border-left:3px solid var(--orange)}
+.vc-res-lbl{font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted)}
+.vc-res-val{font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;line-height:1.2;margin-top:2px}
+.vc-res-sub{font-size:11px;color:var(--text-muted)}
+.vc-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+.vc-search{position:relative;flex:1;min-width:220px;max-width:380px}
+.vc-search span{position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:13px;opacity:.7;pointer-events:none}
+.vc-search input{width:100%;padding:10px 14px 10px 36px;background:var(--darker);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Barlow',sans-serif;font-size:14px}
+.vc-search input:focus{outline:none;border-color:var(--orange)}
+.vc-count{margin-left:auto;font-size:12px;color:var(--text-muted)}
+.vc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:16px}
+.vc{display:flex;flex-direction:column;background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;transition:border-color .15s,transform .15s,box-shadow .15s}
+.vc:hover{border-color:var(--orange);transform:translateY(-2px);box-shadow:0 10px 28px rgba(0,0,0,.25)}
+.vc-sold{opacity:.85}
+.vc-head{display:flex;gap:10px;align-items:flex-start;padding:16px 16px 10px}
+.vc-brand{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--orange)}
+.vc-model{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vc-version{font-size:12px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.vc-badges{display:flex;flex-direction:column;gap:4px;align-items:flex-end;flex-shrink:0}
+.vc-status{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:3px 8px;border-radius:20px;white-space:nowrap}
+.vc-st-ok{background:rgba(46,204,113,.15);color:var(--success)}
+.vc-st-res{background:rgba(52,152,219,.15);color:var(--info)}
+.vc-st-sold{background:rgba(244,123,32,.15);color:var(--orange)}
+.vc-st-consig{background:rgba(155,89,182,.18);color:#b07cd8}
+.vc-plate-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 16px 12px}
+.vc-plate{display:inline-flex;flex-direction:column;align-items:stretch;background:#fff;border:1.5px solid #222;border-radius:5px;overflow:hidden;min-width:96px}
+.vc-plate-band{background:#1d4fa3;color:#fff;font-size:7px;font-weight:700;letter-spacing:2px;text-align:center;padding:1px 0}
+.vc-plate-num{color:#111;font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800;letter-spacing:1.5px;text-align:center;padding:1px 8px}
+.vc-dias{font-size:11px;color:var(--text-muted);background:var(--darker);border:1px solid var(--border);padding:3px 8px;border-radius:20px}
+.vc-dias-medio{color:var(--warning);border-color:rgba(243,156,18,.4)}
+.vc-dias-alto{color:var(--danger);border-color:rgba(231,76,60,.4)}
+.vc-specs{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;margin:0 16px;padding:12px 0;border-top:1px solid var(--border)}
+.vc-specs div{display:flex;flex-direction:column;min-width:0}
+.vc-specs span{font-size:10px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted)}
+.vc-specs b{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vc-spec-full{grid-column:1/-1}
+.vc-price{background:var(--darker);margin:0 12px;border-radius:10px;padding:12px 14px}
+.vc-price-lbl{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted)}
+.vc-price-val{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;color:var(--orange);line-height:1.15}
+.vc-fin{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border)}
+.vc-fin div{display:flex;flex-direction:column;min-width:0}
+.vc-fin span{font-size:10px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted)}
+.vc-fin b{font-size:14px;white-space:nowrap}
+.vc-fin small{font-size:11px;font-weight:600;opacity:.85}
+.vc-pos{color:var(--success)}.vc-neg{color:var(--danger)}
+.vc-gastos{margin-top:8px;font-size:11px;color:var(--danger)}
+.vc-actions{display:flex;gap:8px;align-items:center;margin-top:auto;padding:12px 16px 14px}
+.vc-actions .btn{flex:1;justify-content:center}
+.vc-del{background:none;border:1px solid var(--border);border-radius:8px;width:34px;height:31px;cursor:pointer;color:var(--text-muted);flex-shrink:0;font-size:14px}
+.vc-del:hover{border-color:var(--danger);background:rgba(231,76,60,.12)}
+@media (max-width:1100px){.vc-resumo{grid-template-columns:1fr 1fr}}
+@media (max-width:560px){.vc-resumo{grid-template-columns:1fr}.vc-count{margin-left:0}}
+
 /* ===== STATS ===== */
 .stat-card {
   background:var(--card); border:1px solid var(--border); border-radius:12px; padding:20px;
@@ -447,7 +502,7 @@ tbody td { padding:12px 16px; font-size:14px; }
     <div class="topbar">
       <h2 id="page-title">Dashboard</h2>
       <div class="topbar-actions" id="topbar-actions"></div>
-      <div id="sync-indicator" style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);margin-left:8px">
+      <div id="sync-indicator" onclick="diagnosticoConexao()" title="Clique para testar a conexão" style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);margin-left:8px;cursor:pointer">
         <span id="sync-dot" style="width:8px;height:8px;border-radius:50%;background:var(--success);flex-shrink:0"></span>
         <span id="sync-text">Online</span>
       </div>
@@ -486,7 +541,11 @@ const SB = {
     // Importante: falha de rede/HTTP deve ESTOURAR erro, para não confundir
     // "sem conexão" com "não há registros" (o que apagaria o cache local).
     const r = await fetch(`${SB_URL}/rest/v1/passos_store?chave=eq.${chave}&select=valor`, {headers:SB_HDR});
-    if(!r.ok) throw new Error('Supabase HTTP ' + r.status + ' (' + chave + ')');
+    if(!r.ok) {
+      let corpo = '';
+      try { corpo = await r.text(); } catch(e) {}
+      throw new Error('HTTP ' + r.status + ' ao ler "' + chave + '" ' + corpo.slice(0,300));
+    }
     const d = await r.json();
     if(d && d[0] && d[0].valor !== null && d[0].valor !== undefined) return d[0].valor;
     return JSON.parse(fallback);
@@ -789,10 +848,11 @@ async function loadData() {
     } catch(e) {
       // Fallback para o cache local se o Supabase falhar
       console.warn('Falha ao carregar da nuvem:', e);
+      window._ultimoErroNuvem = (e && e.message) ? e.message : String(e);
       loadDataLocal();
       setSyncStatus('erro', 'Sem conexão');
       setTimeout(() => notify('⚠ Sem conexão com a nuvem',
-        'Exibindo os dados salvos neste dispositivo. Verifique a internet e recarregue a página.'), 800);
+        'Clique em "Sem conexão" no topo da tela para ver o motivo e tentar de novo.'), 800);
     }
   }
 
@@ -1702,61 +1762,100 @@ function renderVeiculos() {
 
 let _veicFiltro = '';
 let _veicStatus = '';
+let _veicOrdem = 'recentes';
+
+function veicFinanceiro(v) {
+  const gastos = DATA.gastos.filter(g=>g.veiculo_id===v.id).reduce((s,g)=>s+(g.valor||0),0);
+  const custo = (v.valor_compra||0) + gastos;
+  const consig = v.tipo_veiculo === 'consignado';
+  const margem = consig ? (v.comissao_consig||0) : (v.valor_venda||0) - custo;
+  const pct = (!consig && custo) ? (margem/custo*100) : null;
+  return { gastos, custo, margem, pct, consig };
+}
 
 function renderVeiculosList(filtro) {
-  // If called with argument, update stored filtro; else keep existing
   if(filtro !== undefined) _veicFiltro = filtro;
 
-  // Only build the shell on first render (grid not present yet)
   if(!document.getElementById('veiculos-grid')) {
-    _veicFiltro = '';
-    _veicStatus = '';
-    const content = document.getElementById('content');
-    content.innerHTML = `
-      <div class="filter-bar mb-16">
-        <div style="position:relative;max-width:320px;flex:1">
-          <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:14px;pointer-events:none">🔍</span>
-          <input type="text" placeholder="Buscar marca, modelo, placa, cor..." class="form-control"
-            style="padding-left:36px;color:var(--text);background:var(--darker)"
-            id="filtro-veic"
+    _veicFiltro = ''; _veicStatus = '';
+    document.getElementById('content').innerHTML = `
+      <div class="vc-resumo" id="veic-resumo"></div>
+      <div class="vc-toolbar">
+        <div class="vc-search">
+          <span>🔍</span>
+          <input type="text" id="filtro-veic" placeholder="Buscar marca, modelo, placa, cor..."
             oninput="renderVeiculosList(this.value)">
         </div>
-        <select class="form-control" style="width:150px" onchange="filterVeiculosStatus(this.value)" id="filtro-status">
+        <select class="form-control" style="width:160px" onchange="filterVeiculosStatus(this.value)" id="filtro-status">
           <option value="">Em estoque</option>
           <option value="disponivel">Disponível</option>
           <option value="reservado">Reservado</option>
           <option value="vendido">Vendido</option>
         </select>
+        <select class="form-control" style="width:210px" onchange="_veicOrdem=this.value;renderVeiculosList()" id="ordem-veic">
+          <option value="recentes">Entrada mais recente</option>
+          <option value="marca">Marca / modelo (A-Z)</option>
+          <option value="preco_desc">Maior preço</option>
+          <option value="preco_asc">Menor preço</option>
+          <option value="margem">Maior margem</option>
+          <option value="km">Menor quilometragem</option>
+        </select>
+        <div class="vc-count" id="veic-count"></div>
       </div>
-      <div class="grid-auto" id="veiculos-grid"></div>
-    `;
+      <div class="vc-grid" id="veiculos-grid"></div>`;
   }
 
-  // Always restore input value (avoids cursor reset)
   const inputEl = document.getElementById('filtro-veic');
   if(inputEl && inputEl.value !== _veicFiltro) inputEl.value = _veicFiltro;
+  const ordemEl = document.getElementById('ordem-veic');
+  if(ordemEl) ordemEl.value = _veicOrdem;
 
   let veiculos = DATA.veiculos;
-  if(_veicStatus) {
-    veiculos = veiculos.filter(v => v.status === _veicStatus);
-  } else {
-    // Por padrão, ocultar vendidos (aparecem apenas quando filtro "Vendido" for selecionado)
-    veiculos = veiculos.filter(v => v.status !== 'vendido');
-  }
+  veiculos = _veicStatus ? veiculos.filter(v => v.status === _veicStatus) : veiculos.filter(v => v.status !== 'vendido');
   if(_veicFiltro) {
     const q = _veicFiltro.toLowerCase();
     veiculos = veiculos.filter(v =>
       [v.marca, v.modelo, v.versao, v.placa, String(v.ano), v.cor, v.combustivel]
-        .filter(Boolean).some(campo => campo.toLowerCase().includes(q))
-    );
+        .filter(Boolean).some(c => c.toLowerCase().includes(q)));
   }
 
+  const fin = new Map(veiculos.map(v => [v.id, veicFinanceiro(v)]));
+  const ord = {
+    recentes:   (a,b) => (b.data_entrada||'').localeCompare(a.data_entrada||''),
+    marca:      (a,b) => (a.marca+' '+a.modelo).localeCompare(b.marca+' '+b.modelo),
+    preco_desc: (a,b) => (b.valor_venda||0) - (a.valor_venda||0),
+    preco_asc:  (a,b) => (a.valor_venda||0) - (b.valor_venda||0),
+    margem:     (a,b) => fin.get(b.id).margem - fin.get(a.id).margem,
+    km:         (a,b) => (a.km||0) - (b.km||0)
+  }[_veicOrdem] || (() => 0);
+  veiculos = [...veiculos].sort(ord);
+
+  // Resumo
+  const tVenda = veiculos.reduce((s,v)=>s+(v.valor_venda||0),0);
+  const tCusto = veiculos.reduce((s,v)=>s+(fin.get(v.id).consig?0:fin.get(v.id).custo),0);
+  const tMargem = veiculos.reduce((s,v)=>s+fin.get(v.id).margem,0);
+  const nConsig = veiculos.filter(v=>v.tipo_veiculo==='consignado').length;
+  const resumo = document.getElementById('veic-resumo');
+  if(resumo) resumo.innerHTML = `
+    <div class="vc-res-item"><div class="vc-res-lbl">Veículos listados</div>
+      <div class="vc-res-val">${veiculos.length}</div>
+      <div class="vc-res-sub">${veiculos.length-nConsig} próprios · ${nConsig} consignados</div></div>
+    <div class="vc-res-item"><div class="vc-res-lbl">Valor de venda</div>
+      <div class="vc-res-val">${fmt(tVenda)}</div>
+      <div class="vc-res-sub">soma dos preços anunciados</div></div>
+    <div class="vc-res-item"><div class="vc-res-lbl">Capital investido</div>
+      <div class="vc-res-val">${fmt(tCusto)}</div>
+      <div class="vc-res-sub">compra + gastos (próprios)</div></div>
+    <div class="vc-res-item"><div class="vc-res-lbl">Margem potencial</div>
+      <div class="vc-res-val" style="color:${tMargem>=0?'var(--success)':'var(--danger)'}">${fmt(tMargem)}</div>
+      <div class="vc-res-sub">inclui comissões de consignados</div></div>`;
+  const cnt = document.getElementById('veic-count');
+  if(cnt) cnt.textContent = `${veiculos.length} resultado(s)`;
+
   const grid = document.getElementById('veiculos-grid');
-  if(grid) {
-    grid.innerHTML = veiculos.length
-      ? veiculos.map(v => renderVeiculoCard(v)).join('')
-      : '<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">🚗</div><div>Nenhum veículo encontrado</div></div>';
-  }
+  if(grid) grid.innerHTML = veiculos.length
+    ? veiculos.map(v => renderVeiculoCard(v, fin.get(v.id))).join('')
+    : '<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">🚗</div><div>Nenhum veículo encontrado</div></div>';
 }
 
 function filterVeiculosStatus(status) {
@@ -1764,52 +1863,69 @@ function filterVeiculosStatus(status) {
   renderVeiculosList();
 }
 
-function renderVeiculoCard(v) {
-  const statusMap = { disponivel:['badge-green','Disponível'], reservado:['badge-blue','Reservado'], vendido:['badge-orange','✅ Vendido'] };
-  const [bc, bs] = statusMap[v.status] || ['badge-gray','?'];
-  const totalGastos = DATA.gastos.filter(g=>g.veiculo_id===v.id).reduce((s,g)=>s+(g.valor||0),0);
-  const custoReal = v.valor_compra + totalGastos;
-  const lucroReal = v.valor_venda - custoReal;
+function fmt0(v) {
+  return (v||0).toLocaleString('pt-BR', { style:'currency', currency:'BRL', maximumFractionDigits:0 });
+}
+
+function diasEmEstoque(v) {
+  if(!v.data_entrada) return null;
+  const d = new Date(v.data_entrada + 'T00:00:00');
+  if(isNaN(d)) return null;
+  return Math.max(0, Math.floor((Date.now() - d.getTime()) / 86400000));
+}
+
+function renderVeiculoCard(v, f) {
+  f = f || veicFinanceiro(v);
+  const st = { disponivel:['ok','Disponível'], reservado:['res','Reservado'], vendido:['sold','Vendido'] }[v.status] || ['res', v.status||'-'];
+  const dias = v.status !== 'vendido' ? diasEmEstoque(v) : null;
+  const diasCls = dias === null ? '' : dias > 90 ? 'vc-dias-alto' : dias > 45 ? 'vc-dias-medio' : '';
+  const esc = s => String(s||'').replace(/</g,'&lt;');
   return `
-    <div class="vehicle-card ${v.status==='vendido'?'sold':''}">
-      <div class="vehicle-card-header">
-        <div class="vehicle-icon">🚗</div>
-        <div style="flex:1">
-          <div class="vehicle-name">${v.marca} ${v.modelo}</div>
-          <div class="vehicle-detail">${v.versao||''} • ${v.ano} • ${v.cor}</div>
-        </div>
-        <span class="badge ${bc}">${bs}</span>
+  <div class="vc ${v.status==='vendido'?'vc-sold':''}">
+    <div class="vc-head">
+      <div style="min-width:0;flex:1">
+        <div class="vc-brand">${esc(v.marca)}</div>
+        <div class="vc-model" title="${esc(v.modelo)}">${esc(v.modelo)}</div>
+        <div class="vc-version" title="${esc(v.versao)}">${esc(v.versao)||'&nbsp;'}</div>
       </div>
-      <div class="vehicle-card-body">
-        <div class="grid-2" style="font-size:13px;gap:6px">
-          <div class="text-muted">Placa: <b class="text-orange">${v.placa||'-'}</b></div>
-          <div class="text-muted">KM: <b>${(v.km||0).toLocaleString('pt-BR')}</b></div>
-          <div class="text-muted">Comb.: <b>${v.combustivel||'-'}</b></div>
-          <div class="text-muted">Câmbio: <b>${v.transmissao||'-'}</b></div>
-        </div>
-        ${totalGastos>0?`<div style="margin-top:8px;padding:6px 10px;background:rgba(231,76,60,0.1);border-radius:6px;font-size:12px;color:var(--danger)">💸 Gastos: ${fmt(totalGastos)} | Custo real: ${fmt(custoReal)}</div>`:''}
-        <div class="flex-between" style="margin-top:10px">
-          <div>
-            <div class="text-muted" style="font-size:11px">COMPRA</div>
-            <div style="font-weight:700">${fmt(v.valor_compra)}</div>
-          </div>
-          <div style="text-align:center">
-            <div class="text-muted" style="font-size:11px">MARGEM REAL</div>
-            <div style="font-weight:700;color:${lucroReal>=0?'var(--success)':'var(--danger)'}">${fmt(lucroReal)}</div>
-          </div>
-          <div style="text-align:right">
-            <div class="text-muted" style="font-size:11px">VENDA</div>
-            <div class="vehicle-price">${fmt(v.valor_venda)}</div>
-          </div>
-        </div>
-        <div class="vehicle-actions">
-          <button class="btn btn-sm btn-secondary" onclick="openVeiculoModal('${v.id}')">✏ Editar</button>
-          ${v.status==='disponivel'?`<button class="btn btn-sm btn-primary" onclick="openVendaModalComVeiculo('${v.id}')">💰 Vender</button>`:''}
-          <button class="btn btn-sm btn-danger" onclick="deleteVeiculo('${v.id}').catch(e=>{notify(\'⚠ Erro\',\'Falha ao salvar. Verifique a conexão.\');})" style="margin-left:auto">🗑</button>
-        </div>
+      <div class="vc-badges">
+        <span class="vc-status vc-st-${st[0]}">${st[1]}</span>
+        ${f.consig ? '<span class="vc-status vc-st-consig">Consignado</span>' : ''}
       </div>
     </div>
-  `;
+
+    <div class="vc-plate-row">
+      <div class="vc-plate"><span class="vc-plate-band">BRASIL</span><span class="vc-plate-num">${esc(v.placa)||'SEM PLACA'}</span></div>
+      ${dias!==null ? `<div class="vc-dias ${diasCls}" title="Dias desde a entrada no estoque">⏱ ${dias} dia${dias===1?'':'s'}</div>` : ''}
+    </div>
+
+    <div class="vc-specs">
+      <div><span>Ano</span><b>${v.ano||'-'}</b></div>
+      <div><span>KM</span><b>${(v.km||0).toLocaleString('pt-BR')}</b></div>
+      <div><span>Câmbio</span><b>${esc(v.transmissao)||'-'}</b></div>
+      <div><span>Combustível</span><b>${esc(v.combustivel)||'-'}</b></div>
+      <div class="vc-spec-full"><span>Cor</span><b>${esc(v.cor)||'-'}</b></div>
+    </div>
+
+    <div class="vc-price">
+      <div class="vc-price-lbl">Preço de venda</div>
+      <div class="vc-price-val">${fmt0(v.valor_venda)}</div>
+      <div class="vc-fin">
+        ${f.consig ? `
+          <div><span>Comissão</span><b class="vc-pos">${fmt0(v.comissao_consig)}</b></div>
+          <div><span>Tipo</span><b>Consignado</b></div>` : `
+          <div><span>Compra</span><b>${fmt0(v.valor_compra)}</b></div>
+          <div><span>Margem</span><b class="${f.margem>=0?'vc-pos':'vc-neg'}">${fmt0(f.margem)}${f.pct!==null?` <small>${f.pct.toFixed(1)}%</small>`:''}</b></div>`}
+      </div>
+      ${f.gastos>0 ? `<div class="vc-gastos">Gastos ${fmt0(f.gastos)} · custo real ${fmt0(f.custo)}</div>` : ''}
+    </div>
+
+    <div class="vc-actions">
+      <button class="btn btn-sm btn-secondary" onclick="openVeiculoModal('${v.id}')">✏ Editar</button>
+      ${v.status==='disponivel' ? `<button class="btn btn-sm btn-primary" onclick="openVendaModalComVeiculo('${v.id}')">💰 Vender</button>` : ''}
+      <button class="vc-del" title="Excluir veículo" onclick="deleteVeiculo('${v.id}').catch(()=>notify('⚠ Erro','Falha ao salvar. Verifique a conexão.'))">🗑</button>
+    </div>
+  </div>`;
 }
 
 function openVeiculoModal(id) {
@@ -3676,6 +3792,50 @@ async function deleteModelo(id) {
   notify('🗑 Modelo removido!', '');
 }
 
+
+// ==================== DIAGNÓSTICO DE CONEXÃO ====================
+function explicarErroNuvem(msg) {
+  msg = msg || '';
+  if(/Failed to fetch|NetworkError|Load failed/i.test(msg))
+    return 'O navegador não conseguiu alcançar o servidor. Verifique a internet, antivírus/firewall ou se o projeto do Supabase está pausado (painel do Supabase → botão "Restore project").';
+  if(/42501|permission denied/i.test(msg))
+    return 'O banco negou a permissão de acesso à tabela "passos_store". No Supabase, rode no SQL Editor: grant select, insert, update on table public.passos_store to anon;';
+  if(/HTTP 401|Invalid API key|JWT|Legacy API keys/i.test(msg))
+    return 'A chave de acesso (anon key) foi recusada. No Supabase, vá em Project Settings → API, copie a chave "anon public" (ou a nova "publishable key") e substitua o valor de SB_KEY no arquivo.';
+  if(/HTTP 404|PGRST205|does not exist|relation/i.test(msg))
+    return 'A tabela "passos_store" não foi encontrada no banco. Ela pode ter sido apagada ou o projeto pode ser outro.';
+  if(/HTTP 403|permission denied|42501/i.test(msg))
+    return 'O banco negou a permissão de leitura. Verifique as políticas (RLS) da tabela "passos_store" para o papel anon.';
+  if(/HTTP 5\d\d|HTTP 540/i.test(msg))
+    return 'O servidor do Supabase está indisponível ou o projeto está pausado. Entre no painel do Supabase e reative o projeto.';
+  return 'Erro não identificado. Envie a mensagem técnica abaixo para análise.';
+}
+
+async function diagnosticoConexao() {
+  setSyncStatus('aviso', 'Testando...');
+  let erro = null;
+  try { await SB.get('metas', '{}'); } catch(e) { erro = (e && e.message) ? e.message : String(e); }
+
+  if(!erro) {
+    setSyncStatus('ok', 'Online');
+    notify('✅ Conectado', 'A nuvem respondeu. Recarregando os dados...');
+    try { await loadData(); buildSidebar(); navigate(currentPage || 'dashboard'); } catch(e) {}
+    return;
+  }
+  window._ultimoErroNuvem = erro;
+  setSyncStatus('erro', 'Sem conexão');
+  document.getElementById('modal-title').textContent = '⚠ Sem conexão com a nuvem';
+  document.getElementById('modal-body').innerHTML = `
+    <div class="alert alert-warning" style="display:block;line-height:1.5">${explicarErroNuvem(erro)}</div>
+    <div style="font-size:12px;color:var(--text-muted);margin:12px 0 4px">Mensagem técnica:</div>
+    <pre style="white-space:pre-wrap;word-break:break-all;background:var(--darker);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:11px;max-height:180px;overflow:auto">${String(erro).replace(/</g,'&lt;')}</pre>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:10px">Enquanto isso, o sistema mostra os dados salvos neste computador. Alterações feitas agora ficam só aqui até a conexão voltar.</div>`;
+  document.getElementById('modal-footer').innerHTML = `
+    <button class="btn btn-secondary" onclick="closeModal()">Fechar</button>
+    <button class="btn btn-primary" onclick="closeModal();diagnosticoConexao()">🔄 Tentar novamente</button>`;
+  openModal();
+}
+
 // ==================== UTILS ====================
 // ==================== IMPRESSÃO EM PDF ====================
 const EMPRESA = {
@@ -4377,9 +4537,9 @@ async function initApp() {
 function startSupabasePing() {
   setInterval(async ()=>{
     try {
-      if(window.supabase) {
+      if(true) {
         // Query leve que não bloqueia a base - apenas verifica a conexão
-        await window.supabase.from('config').select('*').limit(1);
+        await SB.get('metas','{}');
         console.log('🔄 Ping Supabase - Conexão ativa');
       }
     } catch(err) {
@@ -4389,13 +4549,7 @@ function startSupabasePing() {
 }
 
 // Iniciar ping quando Supabase estiver pronto
-function initPing() {
-  if(window.supabase) {
-    startSupabasePing();
-  } else {
-    setTimeout(initPing, 1000);
-  }
-}
+function initPing() { startSupabasePing(); }
 
 // Chamar ao inicializar a página
 if(document.readyState==='loading') {
